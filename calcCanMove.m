@@ -1,7 +1,7 @@
 function Net = calcCanMove(Net)
 
     oldMoveH = Net.MoveH;
-    oldMoveV = Net.MoveV;
+    oldMoveV = Net.MoveV;%
     
     Net.MoveH = zeros(size(Net.StateH));
     Net.MoveV = zeros(size(Net.StateV));
