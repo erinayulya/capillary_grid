@@ -38,21 +38,19 @@ function Net = calcCanMove(Net)
             if Net.Qh(i,j) > 0 % движение вправо
                 if j == size(Net.StateH,2) % правая граница - выход
                     move = true;
-                else
-                    if WaterConnectedH(i,j+1)
-                        move = true;
-                    elseif WaterConnectedV(i,j)
-                        move = true;
-                    elseif i < size(Net.StateV,1) && WaterConnectedV(i+1,j)
-                        move = true;
-                    end
+                elseif WaterConnectedH(i,j+1)
+                    move = true;
+                elseif i <= size(Net.StateV,1) &&  WaterConnectedV(i,j)
+                    move = true;
+                elseif i > 1 && WaterConnectedV(i-1,j)
+                    move = true;
                 end
             elseif Net.Qh(i,j) < 0 % движение влево
-                if WaterConnectedH(i,j-1)
+                if j>1 && WaterConnectedH(i,j-1)
                     move = true;
                 elseif i > 1 && WaterConnectedV(i-1,j-1)
                     move = true;
-                elseif WaterConnectedV(i,j-1)
+                elseif i <= size(Net.StateV,1) && WaterConnectedV(i,j-1)
                     move = true;
                 end
             end
@@ -82,24 +80,16 @@ function Net = calcCanMove(Net)
             move = false;
             
             if Net.Qv(i,j)>0 % движение вниз
-                if i < size(Net.StateV,1)
-                    if WaterConnectedV(i+1,j)
-                        move = true;
-                    elseif WaterConnectedH(i+1,j)
-                        move = true;
-                    elseif WaterConnectedH(i+1,j+1)
-                        move = true;
-                    end
+                if i < size(Net.StateV,1) && WaterConnectedV(i+1,j)
+                    move = true;
+                elseif WaterConnectedH(i+1,j) || WaterConnectedH(i+1,j+1)
+                    move = true;
                 end
             elseif Net.Qv(i,j)<0 % движение вверх
-                if i > 1
-                    if WaterConnectedV(i-1,j)
-                        move = true;
-                    elseif WaterConnectedH(i,j)
-                        move = true;
-                    elseif WaterConnectedH(i,j+1)
-                        move = true;
-                    end
+                if i > 1 && WaterConnectedV(i-1,j)
+                    move = true;
+                elseif WaterConnectedH(i,j) || WaterConnectedH(i,j+1)
+                    move = true;
                 end
             end
             
