@@ -10,7 +10,7 @@ function Net = calcCanMove(Net)
     oldMoveH = Net.MoveH;
     oldMoveV = Net.MoveV;
     
-    Net.MoveH = zeros(size(Net.StateH));
+    Net.MoveH = zeros(size(Net.StateH)); %%%
     Net.MoveV = zeros(size(Net.StateV));
     
     % Ранее заблокированные капилляры остаются заблокированными
