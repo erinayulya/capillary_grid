@@ -1,6 +1,6 @@
 %% Якобиан и невязка системы уравнений
-% 
-% Функция возвращает вектор невязок F и Якобиан J системы уравнений для 
+%
+% Функция возвращает вектор невязок F и Якобиан J системы уравнений для
 % текущего приближения решения.
 % Система состоит из уравнений 2 видов:
 % (1) Баланс расходов в узле: Q_left - Q_right + Q_up - Q_down = 0
@@ -10,31 +10,31 @@
 
 function [F,J] = calcResidualJacobian(...
     Net,X,idxP,idxQH,idxQV)
-    
+
     % Подготовка массивов
     nP = Net.H.Ny*(Net.H.Nx-1);
     nQH = Net.H.Ny*Net.H.Nx;
     nQV = Net.V.Ny*Net.V.Nx;
     n = nP+nQH+nQV; % число неизвестных
-
+    
     F = zeros(n,1); % вектор невязок
-
+    
     % Якобиан:
     % J(rowIdx, colIdx) = jacVal
     rowIdx = []; % номер строки
     colIdx = []; % номер столбца
     jacVal = []; % значение элемента Якобиана
-
+    
     % X = [P Qh Qv] - вектор всех неизвестных
     
     %%-------------------------------------------------------
-    %% Баланс в узле 
+    %% Баланс в узле
     %%-------------------------------------------------------
     % F_node = Q_left - Q_right + Q_up - Q_down
     for i = 1:Net.H.Ny
         for j = 2:Net.H.Nx
             row = idxP(i,j-1); % номер уравнения баланса
-
+    
             % Поток слева к узлу
             q = X(idxQH(i,j-1));
             F(row) = F(row)+q;
@@ -50,7 +50,7 @@ function [F,J] = calcResidualJacobian(...
             jacVal(end+1) = -1;
     
             % Поток вверх
-            if i>1 
+            if i > 1
                 q = X(idxQV(i-1,j-1));
                 F(row) = F(row)+q;
                 rowIdx(end+1) = row;
@@ -59,7 +59,7 @@ function [F,J] = calcResidualJacobian(...
             end
     
             % Поток вниз
-            if i<Net.H.Ny
+            if i < Net.H.Ny
                 q = X(idxQV(i,j-1));
                 F(row) = F(row)-q;
                 rowIdx(end+1) = row;
@@ -78,23 +78,22 @@ function [F,J] = calcResidualJacobian(...
         for j = 1:Net.H.Nx
             row = idxQH(i,j);
             q = X(row);
-
-            if j==1
+            if j == 1
                 pLeft = Net.H.P0;
             else
                 pLeft = X(idxP(i,j-1));
             end
     
-            if j==Net.H.Nx
+            if j == Net.H.Nx
                 pRight = 0;
             else
                 pRight = X(idxP(i,j));
             end
     
             dp = pLeft-pRight;
-    
+
             % f - невязка уравнения для конкретного капилляра
-            % dfdp, dfdq - производная уравнения по давлению/расходу         
+            % dfdp, dfdq - производная уравнения по давлению/расходу 
             [f,dfdp,dfdq] = capillaryEquation(...
                 Net,dp,q,Net.H.A(i,j),...
                 Net.H.Sat(i,j),...
@@ -104,13 +103,13 @@ function [F,J] = calcResidualJacobian(...
     
             F(row) = f;
     
-            if j>1
+            if j > 1
                 rowIdx(end+1) = row;
                 colIdx(end+1) = idxP(i,j-1);
                 jacVal(end+1) = dfdp;
             end
     
-            if j<Net.H.Nx
+            if j < Net.H.Nx
                 rowIdx(end+1) = row;
                 colIdx(end+1) = idxP(i,j);
                 jacVal(end+1) = -dfdp;
@@ -123,22 +122,23 @@ function [F,J] = calcResidualJacobian(...
     end
     
     %% Вертикальные капилляры
-    
     for i = 1:Net.V.Ny
         for j = 1:Net.V.Nx
             row = idxQV(i,j);
             q = X(row);
-
-            if i==1
+    
+            % Давление сверху
+            if i == 1
                 pTop = Net.V.P0;
             else
-                pTop = X(idxP(i-1,j));
+                pTop = X(idxP(i-1,j-1));
             end
-
-            if i==Net.V.Ny
+    
+            % Давление снизу
+            if i == Net.V.Ny
                 pBottom = 0;
             else
-                pBottom = X(idxP(i,j));
+                pBottom = X(idxP(i,j-1));
             end
     
             dp = pTop-pBottom;
@@ -152,15 +152,15 @@ function [F,J] = calcResidualJacobian(...
     
             F(row) = f;
     
-            if i>1
+            if i > 1
                 rowIdx(end+1) = row;
-                colIdx(end+1) = idxP(i-1,j);
+                colIdx(end+1) = idxP(i-1,j-1);
                 jacVal(end+1) = dfdp;
             end
-
-            if i<Net.V.Ny
+    
+            if i < Net.V.Ny
                 rowIdx(end+1) = row;
-                colIdx(end+1) = idxP(i,j);
+                colIdx(end+1) = idxP(i,j-1);
                 jacVal(end+1) = -dfdp;
             end
     
@@ -169,7 +169,7 @@ function [F,J] = calcResidualJacobian(...
             jacVal(end+1) = dfdq;
         end
     end
-    
+
     J = sparse(rowIdx,colIdx,jacVal,n,n);
 
 end
