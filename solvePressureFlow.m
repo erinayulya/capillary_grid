@@ -1,5 +1,5 @@
 %% Решение капиллярной сети
-% 
+%
 % Основная функция, рассчитывающая давления и расходы в капиллярной сети.
 % Собирается и итерационно решается нелинейная система уравнений вида:
 % (1) сумма расходов в узле = 0
@@ -9,87 +9,85 @@
 % невязки и достижения заданной точности.
 
 function Net = solvePressureFlow(Net)
-    
+
     % Подготовка массивов
-    Ny = Net.Ny;
-    Nx = Net.Nx;
     
-    nP  = Ny*(Nx-1);
-    nQH = Ny*Nx;
-    nQV = (Ny-1)*(Nx-1);
+    nP  = Net.H.Ny*(Net.H.Nx-1);
+    nQH = Net.H.Ny*Net.H.Nx;
+    nQV = Net.V.Ny*Net.V.Nx;
     
     n = nP+nQH+nQV;
     
-    idxP = reshape(1:nP,Ny,Nx-1);
-    idxQH = nP + reshape(1:nQH,Ny,Nx);
-    idxQV = nP+nQH + reshape(1:nQV,Ny-1,Nx-1);
+    idxP = reshape(1:nP,Net.H.Ny,Net.H.Nx-1);
+    idxQH = nP + reshape(1:nQH,Net.H.Ny,Net.H.Nx);
+    idxQV = nP+nQH + reshape(1:nQV,Net.V.Ny,Net.V.Nx);
     
     X = zeros(n,1);
     
     % Начальное приближение для P:
     % из предыдущего шага или из граничного условия
     if isfield(Net,'P') && ...
-            isequal(size(Net.P),[Ny,Nx+1])
-        P0 = Net.P(:,2:Nx);
+    isequal(size(Net.P),[Net.H.Ny,Net.H.Nx+1])
+        P0 = Net.P(:,2:Net.H.Nx);
         X(idxP(:)) = P0(:);
     else
-        for i = 1:Ny
-            for j = 2:Nx
+        for i = 1:Net.H.Ny
+            for j = 2:Net.H.Nx
                 X(idxP(i,j-1)) = ...
-                    Net.P0*(Nx+1-j)/Nx;
+                    Net.H.P0*(Net.H.Nx+1-j)/Net.H.Nx;
             end
         end
     end
     
     % Начальное приближение для Qh:
     % из предыдущего шага или рассчитывается по режиму
-    if isfield(Net,'Qh') && ...
-    isequal(size(Net.Qh),[Ny,Nx])
-        X(idxQH(:)) = Net.Qh(:);
+    if isfield(Net.H,'Q') && ...
+    isequal(size(Net.H.Q),[Net.H.Ny,Net.H.Nx])
+        X(idxQH(:)) = Net.H.Q(:);
     else
         % Начальное приближение Q для капилляров с мениском
-        for i = 1:Ny
-            for j = 1:Nx
-                if Net.StateH(i,j) == 1
-                    X(idxQH(:)) = 1e-15; % ненулевая малая величина
+        for i = 1:Net.H.Ny
+            for j = 1:Net.H.Nx
+                if Net.H.State(i,j) == 1
+                    X(idxQH(i,j)) = 1e-15; % ненулевая малая величина
                 end
             end
         end
     end
     
     % Начальное приближение для Qv:
-    if isfield(Net,'Qv') && ...
-            isequal(size(Net.Qv),[Ny-1,Nx-1])
-        X(idxQV(:)) = Net.Qv(:);
+    if isfield(Net.V,'Q') && ...
+    isequal(size(Net.V.Q),[Net.V.Ny,Net.V.Nx])
+        X(idxQV(:)) = Net.V.Q(:);
     end
     
     %%-------------------------------------------------------
     %% Основной расчет
     %%-------------------------------------------------------
-
+    
     tol = 1e-10;  % таргетное значение невязки
     maxIter = 50; % максисмальное кол-во шагов поиска решения
     
     % F - невязка текущего решения
     % J - якобиан
     % dx - шаг Ньютона
-
+    
     for iter = 1:maxIter
         [F,J] = calcResidualJacobian(...
             Net,X,idxP,idxQH,idxQV);
-        
+    
         % Проверка невязки:
         err = norm(F,inf);
         if err < tol
             break % точность достигнута, решение найдено
         end
-
+    
         % Если точность не достигнута:
         dx = J\(-F);
         if any(~isfinite(dx))
             error('Newton: получен некорректный шаг.')
         end
-
+    
         % Корректировка шага:
         alpha = 1;
         while alpha > 1e-6
@@ -112,22 +110,22 @@ function Net = solvePressureFlow(Net)
     if norm(F,inf) >= tol
         warning('Newton: не достигнута заданная точность.')
     end
-
+    
     %%-------------------------------------------------------
     %% Подготовка результатов
     %%-------------------------------------------------------
     
-    Net.P = zeros(Ny,Nx+1);
-    Net.P(:,1) = Net.P0;
-    Net.P(:,Nx+1) = 0;
-    Net.P(:,2:Nx) = ...
-        reshape(X(idxP(:)),Ny,Nx-1);
+    Net.P = zeros(Net.H.Ny,Net.H.Nx+1);
+    Net.P(:,1) = Net.H.P0;
+    Net.P(:,Net.H.Nx+1) = 0;
+    Net.P(:,2:Net.H.Nx) = ...
+        reshape(X(idxP(:)),Net.H.Ny,Net.H.Nx-1);
     
-    Net.Qh = ...
-        reshape(X(idxQH(:)),Ny,Nx);
+    Net.H.Q = ...
+        reshape(X(idxQH(:)),Net.H.Ny,Net.H.Nx);
     
-    Net.Qv = ...
-        reshape(X(idxQV(:)),Ny-1,Nx-1);
+    Net.V.Q = ...
+        reshape(X(idxQV(:)),Net.V.Ny,Net.V.Nx);
     
     Net.NewtonIterations = iter;
 end
