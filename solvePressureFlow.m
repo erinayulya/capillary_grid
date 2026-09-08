@@ -11,30 +11,31 @@
 function Net = solvePressureFlow(Net)
 
     % Подготовка массивов
-    
-    nP  = Net.H.Ny*(Net.H.Nx-1);
+    nP  = (Net.H.Ny-2)*(Net.H.Nx-1);
     nQH = Net.H.Ny*Net.H.Nx;
     nQV = Net.V.Ny*Net.V.Nx;
     
     n = nP+nQH+nQV;
     
-    idxP = reshape(1:nP,Net.H.Ny,Net.H.Nx-1);
+    idxP = reshape(1:nP,Net.H.Ny-2,Net.H.Nx-1);
     idxQH = nP + reshape(1:nQH,Net.H.Ny,Net.H.Nx);
     idxQV = nP+nQH + reshape(1:nQV,Net.V.Ny,Net.V.Nx);
     
     X = zeros(n,1);
     
     % Начальное приближение для P:
-    % из предыдущего шага или из граничного условия
+    % из предыдущего шага или рассчитывается по граничным условиям
     if isfield(Net,'P') && ...
-    isequal(size(Net.P),[Net.H.Ny,Net.H.Nx+1])
-        P0 = Net.P(:,2:Net.H.Nx);
+            isequal(size(Net.P),[Net.H.Ny,Net.H.Nx+1])
+        P0 = Net.P(2:Net.H.Ny-1,2:Net.H.Nx);
         X(idxP(:)) = P0(:);
     else
-        for i = 1:Net.H.Ny
+        for i = 2:Net.H.Ny-1
             for j = 2:Net.H.Nx
-                X(idxP(i,j-1)) = ...
-                    Net.H.P0*(Net.H.Nx+1-j)/Net.H.Nx;
+                % Линейное приближение по двум направлениям
+                X(idxP(i-1,j-1)) = ...
+                    Net.H.P0*(Net.H.Nx+1-j)/Net.H.Nx + ...
+                    Net.V.P0*(Net.H.Ny-i)/(Net.H.Ny-1);
             end
         end
     end
@@ -42,7 +43,7 @@ function Net = solvePressureFlow(Net)
     % Начальное приближение для Qh:
     % из предыдущего шага или рассчитывается по режиму
     if isfield(Net.H,'Q') && ...
-    isequal(size(Net.H.Q),[Net.H.Ny,Net.H.Nx])
+            isequal(size(Net.H.Q),[Net.H.Ny,Net.H.Nx])
         X(idxQH(:)) = Net.H.Q(:);
     else
         % Начальное приближение Q для капилляров с мениском
@@ -57,7 +58,7 @@ function Net = solvePressureFlow(Net)
     
     % Начальное приближение для Qv:
     if isfield(Net.V,'Q') && ...
-    isequal(size(Net.V.Q),[Net.V.Ny,Net.V.Nx])
+            isequal(size(Net.V.Q),[Net.V.Ny,Net.V.Nx])
         X(idxQV(:)) = Net.V.Q(:);
     end
     
@@ -66,7 +67,7 @@ function Net = solvePressureFlow(Net)
     %%-------------------------------------------------------
     
     tol = 1e-10;  % таргетное значение невязки
-    maxIter = 50; % максисмальное кол-во шагов поиска решения
+    maxIter = 50; % максимальное кол-во шагов поиска решения
     
     % F - невязка текущего решения
     % J - якобиан
@@ -75,19 +76,19 @@ function Net = solvePressureFlow(Net)
     for iter = 1:maxIter
         [F,J] = calcResidualJacobian(...
             Net,X,idxP,idxQH,idxQV);
-    
+        
         % Проверка невязки:
         err = norm(F,inf);
         if err < tol
             break % точность достигнута, решение найдено
         end
-    
+
         % Если точность не достигнута:
         dx = J\(-F);
         if any(~isfinite(dx))
             error('Newton: получен некорректный шаг.')
         end
-    
+
         % Корректировка шага:
         alpha = 1;
         while alpha > 1e-6
@@ -104,7 +105,7 @@ function Net = solvePressureFlow(Net)
             error('Newton: не удалось найти допустимый шаг.')
         end
     
-        X = Xtrial; % новое приближение решения выбрано, возвращаемся в начало
+        X = Xtrial; % новое приближение решения выбрано
     end
     
     if norm(F,inf) >= tol
@@ -116,10 +117,16 @@ function Net = solvePressureFlow(Net)
     %%-------------------------------------------------------
     
     Net.P = zeros(Net.H.Ny,Net.H.Nx+1);
+    
+    % Граничные условия
     Net.P(:,1) = Net.H.P0;
     Net.P(:,Net.H.Nx+1) = 0;
-    Net.P(:,2:Net.H.Nx) = ...
-        reshape(X(idxP(:)),Net.H.Ny,Net.H.Nx-1);
+    Net.P(1,:) = Net.V.P0;
+    Net.P(Net.H.Ny,:) = 0;
+    
+    % Внутренние давления
+    Net.P(2:Net.H.Ny-1,2:Net.H.Nx) = ...
+        reshape(X(idxP(:)),Net.H.Ny-2,Net.H.Nx-1);
     
     Net.H.Q = ...
         reshape(X(idxQH(:)),Net.H.Ny,Net.H.Nx);
