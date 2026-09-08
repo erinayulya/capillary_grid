@@ -1,11 +1,11 @@
 clear all
 %% ---------------- Параметры ----------------
 
-Net.P0 = 200;          % Па
+Net.H.P0 = 200;          % Па
+Net.V.P0 = 0;          % Па
 
 Net.mu1 = 1e-3;        % Па*с
-Net.k   = 4.3;
-Net.mu2 = Net.k*Net.mu1;
+Net.mu2 = 4.3*Net.mu1;
 
 Net.L = 9e-3;          % м
 
@@ -16,61 +16,49 @@ Net.kdyn = 2;
 
 %% ----------- Площади капилляров ------------
 
-Net.Ah = [...
+Net.H.A = [...
     5 1 1 0.1;
     1 0.1 5 1;
     0.1 1 1 5]*1e-3;
 
-Net.Av = [...
+Net.V.A = [...
+    10 1 1;
+    10 1 1;
     10 1 1;
     1 0.1 1]*1e-3;
 
-%Net.Ah = [...
-%    1 1 1 1 1;
-%    1 0.1 1 1 10;
-%    1 0.1 1 1 1;
-%    10 1 1 1 1]*1e-3;
-
-%Net.Av = [...
-%    1 1 1 10;
-%    0.1 0.1 1 1;
-%    1 1 1 1]*1e-3;
-
-%Net.Ah = 1e-3*(1+rand(7, 8));
-%Net.Av = 1e-3*(1+rand(6, 7));
-
 %% ---------- Размер сети --------------------
+Net.H.Nx = size(Net.H.A, 2);
+Net.H.Ny = size(Net.H.A, 1);
 
-[Ny,Nx] = size(Net.Ah);
-
-Net.Nx = Nx;
-Net.Ny = Ny;
+Net.V.Nx = size(Net.V.A, 2);
+Net.V.Ny = size(Net.V.A, 1);
 
 %% ---------- Начальные сатурации ------------
 
-Net.SatH = zeros(size(Net.Ah));
-Net.SatV = zeros(size(Net.Av));
+Net.H.Sat = zeros(size(Net.H.A));
+Net.V.Sat = zeros(size(Net.V.A));
 
 %% ---------- Начальные состояния ------------
 
-Net.StateH = zeros(size(Net.Ah));
-Net.StateV = zeros(size(Net.Av));
+Net.H.State = zeros(size(Net.H.A));
+Net.V.State = zeros(size(Net.V.A));
 
-Net.StateH(:,1)=1;
+Net.H.State(:,1)=1;
 
 %% ---------- Начальные move ------------------
 
-Net.MoveH = zeros(size(Net.StateH));
-Net.MoveV = zeros(size(Net.StateV));
+Net.H.Move = zeros(size(Net.H.State));
+Net.V.Move = zeros(size(Net.V.State));
 
-Net.MoveH(:,1)=1;
+Net.H.Move(:,1)=1;
 
 %% ---------- Начальные режимы ----------------
 
-Net.RegimeH = zeros(size(Net.StateH));
-Net.RegimeV = zeros(size(Net.StateV));
+Net.H.Regime = zeros(size(Net.H.State));
+Net.V.Regime = zeros(size(Net.V.State));
 
-Net.RegimeH(:,1) = 1;
+Net.H.Regime(:,1) = 1;
 
 %% ---------- Первый расчет ------------------
 
@@ -88,7 +76,7 @@ drawNetwork(Net);
 
 while true
 
-    if any(Net.StateH(:,end)==2)
+    if any(Net.H.State(:,end)==2)
 
         disp('Вторая фаза достигла правой границы.')
         break
@@ -105,10 +93,10 @@ while true
     end
 
     % Значения с предыдущего шага для графиков
-    Net.SatH_prev = Net.SatH;
-    Net.SatV_prev = Net.SatV;
-    Net.StateH_prev = Net.StateH;
-    Net.StateV_prev = Net.StateV;
+    Net.H.Sat_prev = Net.H.Sat;
+    Net.V.Sat_prev = Net.V.Sat;
+    Net.H.State_prev = Net.H.State;
+    Net.V.State_prev = Net.V.State;
 
     % Основной расчет
     Net = calcSaturation(Net);
@@ -124,9 +112,5 @@ while true
     Net = calcTimeStep(Net);
 
     drawNetwork(Net);
-
-    Net.Qh
-
-    Net.Qv
 
 end
