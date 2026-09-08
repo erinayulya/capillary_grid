@@ -7,26 +7,26 @@
 
 function Net = calcCanMove(Net)
 
-    oldMoveH = Net.MoveH;
-    oldMoveV = Net.MoveV;
+    oldMoveH = Net.H.Move;
+    oldMoveV = Net.V.Move;
     
-    Net.MoveH = zeros(size(Net.StateH));
-    Net.MoveV = zeros(size(Net.StateV));
+    Net.H.Move = zeros(size(Net.H.State));
+    Net.V.Move = zeros(size(Net.V.State));
     
     % Ранее заблокированные капилляры остаются заблокированными
-    Net.MoveH(oldMoveH==2) = 2;
-    Net.MoveV(oldMoveV==2) = 2;
+    Net.H.Move(oldMoveH==2) = 2;
+    Net.V.Move(oldMoveV==2) = 2;
     
     % Определение связности водяной фазы
     [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net);
-    
+
     %%-------------------------------------------------------
     %% Горизонтальные капилляры
     %%-------------------------------------------------------
     
-    for i = 1:size(Net.StateH,1)
-        for j = 1:size(Net.StateH,2)
-            if Net.StateH(i,j)~=1 % пропуск, нет мениска
+    for i = 1:Net.H.Ny
+        for j = 1:Net.H.Nx
+            if Net.H.State(i,j)~=1 % пропуск, нет мениска
                 continue
             end
             if oldMoveH(i,j)==2 % пропуск, заблокирован
@@ -35,42 +35,43 @@ function Net = calcCanMove(Net)
             
             move = false;
             
-            if Net.Qh(i,j) > 0 % движение вправо
-                if j == size(Net.StateH,2) % правая граница - выход
+            if Net.H.Q(i,j) > 0 % движение вправо
+                if j == Net.H.Nx % правая граница - выход
                     move = true;
                 elseif WaterConnectedH(i,j+1)
                     move = true;
-                elseif i <= size(Net.StateV,1) &&  WaterConnectedV(i,j)
+                elseif i <= Net.V.Ny && WaterConnectedV(i,j)
                     move = true;
                 elseif i > 1 && WaterConnectedV(i-1,j)
                     move = true;
                 end
-            elseif Net.Qh(i,j) < 0 % движение влево
-                if j>1 && WaterConnectedH(i,j-1)
+            
+            elseif Net.H.Q(i,j) < 0 % движение влево
+                if j > 1 && WaterConnectedH(i,j-1)
+                    move = true;
+                elseif i <= Net.V.Ny && WaterConnectedV(i,j-1)
                     move = true;
                 elseif i > 1 && WaterConnectedV(i-1,j-1)
                     move = true;
-                elseif i <= size(Net.StateV,1) && WaterConnectedV(i,j-1)
-                    move = true;
                 end
             end
-            
+        
             if move
-                Net.MoveH(i,j)=1;
+                Net.H.Move(i,j)=1;
             else
-                Net.MoveH(i,j)=2;
+                Net.H.Move(i,j)=2;
             end
         end
     end
-    
-    
+
+
     %%-------------------------------------------------------
     %% Вертикальные капилляры
     %%-------------------------------------------------------
     
-    for i = 1:size(Net.StateV,1)
-        for j = 1:size(Net.StateV,2)
-            if Net.StateV(i,j)~=1 % пропуск, нет мениска
+    for i = 1:Net.V.Ny
+        for j = 1:Net.V.Nx
+            if Net.V.State(i,j)~=1 % пропуск, нет мениска
                 continue
             end
             if oldMoveV(i,j)==2 % пропуск, заблокирован
@@ -79,24 +80,31 @@ function Net = calcCanMove(Net)
             
             move = false;
             
-            if Net.Qv(i,j)>0 % движение вниз
-                if i < size(Net.StateV,1) && WaterConnectedV(i+1,j)
+            if Net.V.Q(i,j)>0 % движение вниз
+                if i == Net.V.Ny % нижняя граница - выход
                     move = true;
-                elseif WaterConnectedH(i+1,j) || WaterConnectedH(i+1,j+1)
+                elseif WaterConnectedV(i+1,j)
+                    move = true;
+                elseif i <= Net.H.Ny && ...
+                        (WaterConnectedH(i,j) || WaterConnectedH(i,j+1))
                     move = true;
                 end
-            elseif Net.Qv(i,j)<0 % движение вверх
-                if i > 1 && WaterConnectedV(i-1,j)
+            
+            elseif Net.V.Q(i,j)<0 % движение вверх
+                if i == 1 % верхняя граница - вход
                     move = true;
-                elseif WaterConnectedH(i,j) || WaterConnectedH(i,j+1)
+                elseif WaterConnectedV(i-1,j)
+                    move = true;
+                elseif i-1 <= Net.H.Ny && ...
+                        (WaterConnectedH(i-1,j) || WaterConnectedH(i-1,j+1))
                     move = true;
                 end
             end
             
             if move
-                Net.MoveV(i,j)=1;
+                Net.V.Move(i,j)=1;
             else
-                Net.MoveV(i,j)=2;
+                Net.V.Move(i,j)=2;
             end
         end
     end
