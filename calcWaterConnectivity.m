@@ -1,18 +1,15 @@
 %% Есть ли связность по воде
 %
-% Функция  маркирует капилляры с помощью промежуточной
+% Функция маркирует капилляры с помощью промежуточной
 % переменной WaterConnected, если они полностью заполненны
-% водой (Sat=0) и связаны с правой границей через другие полностью водяные 
-% капилляры, т.е. имеют связность по воде.
-% Источник связности только правая граница.
+% водой (Sat=0) и связаны с правой или нижней границей через другие
+% полностью водяные капилляры, т.е. имеют связность по воде.
+% Источник связности: правая и нижняя границы.
 
 function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
    
-    Ny = size(Net.StateH,1);
-    Nx = size(Net.StateV,2);
-
-    WaterConnectedH = false(size(Net.StateH));
-    WaterConnectedV = false(size(Net.StateV));
+    WaterConnectedH = false(size(Net.H.State));
+    WaterConnectedV = false(size(Net.V.State));
     
     %% =========================================================
     %% Очередь BFS
@@ -23,7 +20,7 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
     % type = 1 -> горизонтальный капилляр
     % type = 2 -> вертикальный капилляр
     
-    maxElements = numel(Net.StateH) + numel(Net.StateV);
+    maxElements = numel(Net.H.State) + numel(Net.V.State);
     
     queueType = zeros(maxElements,1);
     queueI    = zeros(maxElements,1);
@@ -33,21 +30,36 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
     tail = 0;
     
     %% =========================================================
-    %% Старт: правая граница
-    %% ==========================================================
+    %% Старт: правая и нижняя границы
+    %% =========================================================
     
     % На правой границе находятся последние горизонтальные
     % капилляры каждого ряда.
     
-    j = size(Net.StateH,2);
+    j = Net.H.Nx;
     
-    for i = 1:Ny
+    for i = 1:Net.H.Ny
         % Полностью водяной капилляр может быть частью
         % связной водяной области.
-        if Net.SatH(i,j) == 0
+        if Net.H.Sat(i,j) == 0
             WaterConnectedH(i,j) = true;
             tail = tail + 1;
             queueType(tail) = 1;
+            queueI(tail) = i;
+            queueJ(tail) = j;
+        end
+    end
+
+    % На нижней границе находятся последние вертикальные
+    % капилляры каждого столбца.
+    
+    i = Net.V.Ny;
+    
+    for j = 1:Net.V.Nx
+        if Net.V.Sat(i,j) == 0
+            WaterConnectedV(i,j) = true;
+            tail = tail + 1;
+            queueType(tail) = 2;
             queueI(tail) = i;
             queueJ(tail) = j;
         end
@@ -82,7 +94,7 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             % --------------------------------------------------
     
             if j > 1
-                if Net.SatH(i,j-1) == 0 && ...
+                if Net.H.Sat(i,j-1) == 0 && ...
                         ~WaterConnectedH(i,j-1)
                     WaterConnectedH(i,j-1) = true;
                     tail = tail + 1;
@@ -97,8 +109,8 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             % --------------------------------------------------
     
             if i > 1 && j-1 >= 1 && ...
-                    j-1 <= size(Net.StateV,2)
-                if Net.SatV(i-1,j-1) == 0 && ...
+                    j-1 <= Net.V.Nx
+                if Net.V.Sat(i-1,j-1) == 0 && ...
                         ~WaterConnectedV(i-1,j-1)
                     WaterConnectedV(i-1,j-1) = true;
                     tail = tail + 1;
@@ -112,10 +124,10 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             % Через левый узел: V(i,j-1)
             % --------------------------------------------------
     
-            if i <= size(Net.StateV,1) && ...
+            if i <= Net.V.Ny && ...
                     j-1 >= 1 && ...
-                    j-1 <= size(Net.StateV,2)
-                if Net.SatV(i,j-1) == 0 && ...
+                    j-1 <= Net.V.Nx
+                if Net.V.Sat(i,j-1) == 0 && ...
                         ~WaterConnectedV(i,j-1)
                     WaterConnectedV(i,j-1) = true;
                     tail = tail + 1;
@@ -129,8 +141,8 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             % Сосед справа: H(i,j+1)
             % --------------------------------------------------
     
-            if j < size(Net.StateH,2)
-                if Net.SatH(i,j+1) == 0 && ...
+            if j < Net.H.Nx
+                if Net.H.Sat(i,j+1) == 0 && ...
                         ~WaterConnectedH(i,j+1)
                     WaterConnectedH(i,j+1) = true;
                     tail = tail + 1;
@@ -145,8 +157,8 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             % --------------------------------------------------
     
             if i > 1 && ...
-                    j <= size(Net.StateV,2)
-                if Net.SatV(i-1,j) == 0 && ...
+                    j <= Net.V.Nx
+                if Net.V.Sat(i-1,j) == 0 && ...
                         ~WaterConnectedV(i-1,j)
                     WaterConnectedV(i-1,j) = true;
                     tail = tail + 1;
@@ -160,9 +172,9 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             % Через правый узел: V(i,j)
             % --------------------------------------------------
     
-            if i <= size(Net.StateV,1) && ...
-                    j <= size(Net.StateV,2)
-                if Net.SatV(i,j) == 0 && ...
+            if i <= Net.V.Ny && ...
+                    j <= Net.V.Nx
+                if Net.V.Sat(i,j) == 0 && ...
                         ~WaterConnectedV(i,j)
                     WaterConnectedV(i,j) = true;
                     tail = tail + 1;
@@ -189,9 +201,9 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             % --------------------------------------------------
     
             if i >= 1 && ...
-                    i <= size(Net.StateH,1) && ...
-                    j <= size(Net.StateH,2)
-                if Net.SatH(i,j) == 0 && ...
+                    i <= Net.H.Ny && ...
+                    j <= Net.H.Nx
+                if Net.H.Sat(i,j) == 0 && ...
                         ~WaterConnectedH(i,j)
                     WaterConnectedH(i,j) = true;
                     tail = tail + 1;
@@ -206,9 +218,9 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             % --------------------------------------------------
     
             if i >= 1 && ...
-                    i <= size(Net.StateH,1) && ...
-                    j+1 <= size(Net.StateH,2)
-                if Net.SatH(i,j+1) == 0 && ...
+                    i <= Net.H.Ny && ...
+                    j+1 <= Net.H.Nx
+                if Net.H.Sat(i,j+1) == 0 && ...
                         ~WaterConnectedH(i,j+1)
                     WaterConnectedH(i,j+1) = true;
                     tail = tail + 1;
@@ -224,7 +236,7 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             % --------------------------------------------------
     
             if i > 1
-                if Net.SatV(i-1,j) == 0 && ...
+                if Net.V.Sat(i-1,j) == 0 && ...
                         ~WaterConnectedV(i-1,j)
                     WaterConnectedV(i-1,j) = true;
                     tail = tail + 1;
@@ -238,8 +250,8 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             % Через нижний узел: H(i+1,j)
             % --------------------------------------------------
     
-            if i+1 <= size(Net.StateH,1)
-                if Net.SatH(i+1,j) == 0 && ...
+            if i+1 <= Net.H.Ny
+                if Net.H.Sat(i+1,j) == 0 && ...
                         ~WaterConnectedH(i+1,j)
                     WaterConnectedH(i+1,j) = true;
                     tail = tail + 1;
@@ -253,9 +265,9 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             % Через нижний узел: H(i+1,j+1)
             % --------------------------------------------------
     
-            if i+1 <= size(Net.StateH,1) && ...
-                    j+1 <= size(Net.StateH,2)
-                if Net.SatH(i+1,j+1) == 0 && ...
+            if i+1 <= Net.H.Ny && ...
+                    j+1 <= Net.H.Nx
+                if Net.H.Sat(i+1,j+1) == 0 && ...
                         ~WaterConnectedH(i+1,j+1)
                     WaterConnectedH(i+1,j+1) = true;
                     tail = tail + 1;
@@ -269,8 +281,8 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             % Через нижний узел: V(i+1,j)
             % --------------------------------------------------
     
-            if i < size(Net.StateV,1)
-                if Net.SatV(i+1,j) == 0 && ...
+            if i < Net.V.Ny
+                if Net.V.Sat(i+1,j) == 0 && ...
                         ~WaterConnectedV(i+1,j)
                     WaterConnectedV(i+1,j) = true;
                     tail = tail + 1;
