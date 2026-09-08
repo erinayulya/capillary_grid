@@ -11,31 +11,28 @@
 function Net = solvePressureFlow(Net)
 
     % Подготовка массивов
-    nP  = (Net.H.Ny-2)*(Net.H.Nx-1);
+    nP  = Net.H.Ny*(Net.H.Nx-1);
     nQH = Net.H.Ny*Net.H.Nx;
     nQV = Net.V.Ny*Net.V.Nx;
     
     n = nP+nQH+nQV;
     
-    idxP = reshape(1:nP,Net.H.Ny-2,Net.H.Nx-1);
+    idxP = reshape(1:nP,Net.H.Ny,Net.H.Nx-1);
     idxQH = nP + reshape(1:nQH,Net.H.Ny,Net.H.Nx);
     idxQV = nP+nQH + reshape(1:nQV,Net.V.Ny,Net.V.Nx);
     
     X = zeros(n,1);
     
     % Начальное приближение для P:
-    % из предыдущего шага или рассчитывается по граничным условиям
+    % из предыдущего шага или рассчитывается по граничному условию
     if isfield(Net,'P') && ...
-            isequal(size(Net.P),[Net.H.Ny,Net.H.Nx+1])
-        P0 = Net.P(2:Net.H.Ny-1,2:Net.H.Nx);
-        X(idxP(:)) = P0(:);
+            isequal(size(Net.P),[Net.H.Ny,Net.H.Nx-1])
+        X(idxP(:)) = Net.P(:);
     else
-        for i = 2:Net.H.Ny-1
-            for j = 2:Net.H.Nx
-                % Линейное приближение по двум направлениям
-                X(idxP(i-1,j-1)) = ...
-                    Net.H.P0*(Net.H.Nx+1-j)/Net.H.Nx + ...
-                    Net.V.P0*(Net.H.Ny-i)/(Net.H.Ny-1);
+        for i = 1:Net.H.Ny
+            for j = 1:Net.H.Nx-1
+                X(idxP(i,j)) = ...
+                    Net.H.P0*(Net.H.Nx-j)/Net.H.Nx;
             end
         end
     end
@@ -76,19 +73,19 @@ function Net = solvePressureFlow(Net)
     for iter = 1:maxIter
         [F,J] = calcResidualJacobian(...
             Net,X,idxP,idxQH,idxQV);
-        
+    
         % Проверка невязки:
         err = norm(F,inf);
         if err < tol
             break % точность достигнута, решение найдено
         end
-
+    
         % Если точность не достигнута:
         dx = J\(-F);
         if any(~isfinite(dx))
             error('Newton: получен некорректный шаг.')
         end
-
+    
         % Корректировка шага:
         alpha = 1;
         while alpha > 1e-6
@@ -116,17 +113,7 @@ function Net = solvePressureFlow(Net)
     %% Подготовка результатов
     %%-------------------------------------------------------
     
-    Net.P = zeros(Net.H.Ny,Net.H.Nx+1);
-    
-    % Граничные условия
-    Net.P(:,1) = Net.H.P0;
-    Net.P(:,Net.H.Nx+1) = 0;
-    Net.P(1,:) = Net.V.P0;
-    Net.P(Net.H.Ny,:) = 0;
-    
-    % Внутренние давления
-    Net.P(2:Net.H.Ny-1,2:Net.H.Nx) = ...
-        reshape(X(idxP(:)),Net.H.Ny-2,Net.H.Nx-1);
+    Net.P = reshape(X(idxP(:)),Net.H.Ny,Net.H.Nx-1);
     
     Net.H.Q = ...
         reshape(X(idxQH(:)),Net.H.Ny,Net.H.Nx);
