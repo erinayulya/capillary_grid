@@ -12,12 +12,9 @@ function [F,J] = calcResidualJacobian(...
     Net,X,idxP,idxQH,idxQV)
     
     % Подготовка массивов
-    Ny = Net.Ny;
-    Nx = Net.Nx;
-    
-    nP = Ny*(Nx-1);
-    nQH = Ny*Nx;
-    nQV = (Ny-1)*(Nx-1);
+    nP = Net.H.Ny*(Net.H.Nx-1);
+    nQH = Net.H.Ny*Net.H.Nx;
+    nQV = Net.V.Ny*Net.V.Nx;
     n = nP+nQH+nQV; % число неизвестных
 
     F = zeros(n,1); % вектор невязок
@@ -34,8 +31,8 @@ function [F,J] = calcResidualJacobian(...
     %% Баланс в узле 
     %%-------------------------------------------------------
     % F_node = Q_left - Q_right + Q_up - Q_down
-    for i = 1:Ny
-        for j = 2:Nx
+    for i = 1:Net.H.Ny
+        for j = 2:Net.H.Nx
             row = idxP(i,j-1); % номер уравнения баланса
 
             % Поток слева к узлу
@@ -62,7 +59,7 @@ function [F,J] = calcResidualJacobian(...
             end
     
             % Поток вниз
-            if i<Ny
+            if i<Net.H.Ny
                 q = X(idxQV(i,j-1));
                 F(row) = F(row)-q;
                 rowIdx(end+1) = row;
@@ -77,18 +74,18 @@ function [F,J] = calcResidualJacobian(...
     %%-------------------------------------------------------
     
     %% Горизонтальные капилляры
-    for i = 1:Ny
-        for j = 1:Nx
+    for i = 1:Net.H.Ny
+        for j = 1:Net.H.Nx
             row = idxQH(i,j);
             q = X(row);
 
             if j==1
-                pLeft = Net.P0;
+                pLeft = Net.H.P0;
             else
                 pLeft = X(idxP(i,j-1));
             end
     
-            if j==Nx
+            if j==Net.H.Nx
                 pRight = 0;
             else
                 pRight = X(idxP(i,j));
@@ -97,15 +94,15 @@ function [F,J] = calcResidualJacobian(...
             dp = pLeft-pRight;
     
             % f - невязка уравнения для конкретного капилляра
-            % dfdp, dfdq -производная уравнения по давлению/расходу         
+            % dfdp, dfdq - производная уравнения по давлению/расходу         
             [f,dfdp,dfdq] = capillaryEquation(...
-                Net,dp,q,Net.Ah(i,j),...
-                Net.SatH(i,j),...
-                Net.StateH(i,j),...
-                Net.RegimeH(i,j),...
-                Net.MoveH(i,j));
+                Net,dp,q,Net.H.A(i,j),...
+                Net.H.Sat(i,j),...
+                Net.H.State(i,j),...
+                Net.H.Regime(i,j),...
+                Net.H.Move(i,j));
     
-            F(row) = f; % формируется вектор невязок
+            F(row) = f;
     
             if j>1
                 rowIdx(end+1) = row;
@@ -113,7 +110,7 @@ function [F,J] = calcResidualJacobian(...
                 jacVal(end+1) = dfdp;
             end
     
-            if j<Nx
+            if j<Net.H.Nx
                 rowIdx(end+1) = row;
                 colIdx(end+1) = idxP(i,j);
                 jacVal(end+1) = -dfdp;
@@ -127,31 +124,45 @@ function [F,J] = calcResidualJacobian(...
     
     %% Вертикальные капилляры
     
-    for i = 1:Ny-1
-        for j = 1:Nx-1
+    for i = 1:Net.V.Ny
+        for j = 1:Net.V.Nx
             row = idxQV(i,j);
             q = X(row);
-            pTop = X(idxP(i,j));
-            pBottom = X(idxP(i+1,j));
+
+            if i==1
+                pTop = Net.V.P0;
+            else
+                pTop = X(idxP(i-1,j));
+            end
+
+            if i==Net.V.Ny
+                pBottom = 0;
+            else
+                pBottom = X(idxP(i,j));
+            end
     
             dp = pTop-pBottom;
     
             [f,dfdp,dfdq] = capillaryEquation(...
-                Net,dp,q,Net.Av(i,j),...
-                Net.SatV(i,j),...
-                Net.StateV(i,j),...
-                Net.RegimeV(i,j),...
-                Net.MoveV(i,j));
+                Net,dp,q,Net.V.A(i,j),...
+                Net.V.Sat(i,j),...
+                Net.V.State(i,j),...
+                Net.V.Regime(i,j),...
+                Net.V.Move(i,j));
     
             F(row) = f;
     
-            rowIdx(end+1) = row;
-            colIdx(end+1) = idxP(i,j);
-            jacVal(end+1) = dfdp;
-    
-            rowIdx(end+1) = row;
-            colIdx(end+1) = idxP(i+1,j);
-            jacVal(end+1) = -dfdp;
+            if i>1
+                rowIdx(end+1) = row;
+                colIdx(end+1) = idxP(i-1,j);
+                jacVal(end+1) = dfdp;
+            end
+
+            if i<Net.V.Ny
+                rowIdx(end+1) = row;
+                colIdx(end+1) = idxP(i,j);
+                jacVal(end+1) = -dfdp;
+            end
     
             rowIdx(end+1) = row;
             colIdx(end+1) = row;
