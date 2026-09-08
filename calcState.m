@@ -14,8 +14,8 @@ function Net = calcState(Net)
     %% Горизонтальные капилляры
     %%-------------------------------------------------------
     
-    for i = 1:Net.H.Nx
-        for j = 1:Net.H.Ny
+    for i = 1:Net.H.Ny
+        for j = 1:Net.H.Nx
             if Net.H.State(i,j)==1 && Net.H.Sat(i,j)>=1-tol
                 Net.H.State(i,j)=2;
                 Net.H.Sat(i,j)=1;
@@ -37,8 +37,8 @@ function Net = calcState(Net)
     %% Вертикальные капилляры
     %%-------------------------------------------------------
     
-    for i=1:Net.V.Nx
-        for j=1:Net.V.Ny
+    for i=1:Net.V.Ny
+        for j=1:Net.V.Nx
             if Net.V.State(i,j)==1 && Net.V.Sat(i,j)>=1-tol
                 Net.V.State(i,j)=2;
                 Net.V.Sat(i,j)=1;
@@ -71,7 +71,7 @@ function Net = processNode(Net,row,col,from)
     %-------------------------------------------------------
     % Горизонтальный вправо
     %-------------------------------------------------------
-    if col <= Net.H.Ny && from ~= 'R'
+    if col <= Net.H.Nx && from ~= 'R'
         if Net.H.State(row,col) == 0 && Net.H.Q(row,col) > 0
             Net.H.State(row,col) = 1;
             Net.H.Sat(row,col) = 0;
@@ -91,7 +91,7 @@ function Net = processNode(Net,row,col,from)
     %-------------------------------------------------------
     % Вертикальный вниз
     %-------------------------------------------------------
-    if row <= Net.V.Nx && from ~= 'D'
+    if row <= Net.V.Ny && from ~= 'D'
         if Net.V.State(row,col) == 0 && Net.V.Q(row,col) > 0
             Net.V.State(row,col) = 1;
             Net.V.Sat(row,col) = 0;

@@ -40,7 +40,8 @@ function Net = calcCanMove(Net)
                     move = true;
                 elseif WaterConnectedH(i,j+1)
                     move = true;
-                elseif i <= Net.V.Ny && WaterConnectedV(i,j)
+                elseif i <= Net.V.Ny &&...
+                       j <= Net.V.Nx && WaterConnectedV(i,j)
                     move = true;
                 elseif i > 1 && WaterConnectedV(i-1,j)
                     move = true;

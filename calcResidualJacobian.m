@@ -131,14 +131,14 @@ function [F,J] = calcResidualJacobian(...
             if i == 1
                 pTop = Net.V.P0;
             else
-                pTop = X(idxP(i-1,j-1));
+                pTop = X(idxP(i-1,j));
             end
     
             % Давление снизу
             if i == Net.V.Ny
                 pBottom = 0;
             else
-                pBottom = X(idxP(i,j-1));
+                pBottom = X(idxP(i,j));
             end
     
             dp = pTop-pBottom;
@@ -154,13 +154,13 @@ function [F,J] = calcResidualJacobian(...
     
             if i > 1
                 rowIdx(end+1) = row;
-                colIdx(end+1) = idxP(i-1,j-1);
+                colIdx(end+1) = idxP(i-1,j);
                 jacVal(end+1) = dfdp;
             end
     
             if i < Net.V.Ny
                 rowIdx(end+1) = row;
-                colIdx(end+1) = idxP(i,j-1);
+                colIdx(end+1) = idxP(i,j);
                 jacVal(end+1) = -dfdp;
             end
     
