@@ -14,6 +14,7 @@ function Net = calcCanMove(Net)
 
     oldMoveH = Net.H.Move;
     oldMoveV = Net.V.Move;
+    pTol = 1e-8;
     
     % Move = 0 оставляется только капиллярам без мениска. Все мениски
     % по умолчанию считаются временно удержанными, пока не пройдут
@@ -41,47 +42,51 @@ function Net = calcCanMove(Net)
                 continue
             end
             
+            dir = Net.H.Dir(i,j);
             move = false;
-            if j==1
-                move=true;
-
-            elseif Net.H.Q(i,j) >= 0 % движение вправо
-                if j == Net.H.Nx % правая граница - выход
+            if dir > 0
+                if j == 1
                     move = true;
-                elseif WaterConnectedH(i,j+1)
+                elseif j == Net.H.Nx
                     move = true;
-                elseif i <= Net.V.Ny &&...
-                       j <= Net.V.Nx && WaterConnectedV(i,j)
-                    move = true;
-                elseif i+1 <= Net.V.Ny && WaterConnectedV(i+1,j)
+                elseif WaterConnectedH(i,j+1) || ...
+                        WaterConnectedV(i,j) || ...
+                        WaterConnectedV(i+1,j)
                     move = true;
                 end
-            
-            elseif Net.H.Q(i,j) < 0 % движение влево
-                if j > 1 && WaterConnectedH(i,j-1)
-                    move = true;
-                elseif i <= Net.V.Ny && j > 1 && WaterConnectedV(i,j-1)
-                    move = true;
-                elseif i+1 <= Net.V.Ny && j > 1 && WaterConnectedV(i+1,j-1)
+            elseif dir < 0
+                if j > 1 && (WaterConnectedH(i,j-1) || ...
+                        WaterConnectedV(i,j-1) || ...
+                        WaterConnectedV(i+1,j-1))
                     move = true;
                 end
             end
         
-            if move
+            if dir > 0
                 if j == 1
-                    dP = abs(Net.H.P0 - Net.P(i,1));
+                    dP = Net.H.P0 - Net.P(i,1);
                 elseif j == Net.H.Nx
-                    dP = abs(Net.P(i,j-1));
+                    dP = Net.P(i,j-1);
                 else
-                    dP = abs(Net.P(i,j-1) - Net.P(i,j));
+                    dP = Net.P(i,j-1) - Net.P(i,j);
                 end
-            
-                Pc = 2*Net.sigma*cos(Net.theta)/sqrt(Net.H.A(i,j)/pi);
-                if dP > Pc
-                    Net.H.Move(i,j)=1;
+            else
+                if j == 1
+                    dP = Net.P(i,1) - Net.H.P0;
+                elseif j == Net.H.Nx
+                    dP = -Net.P(i,j-1);
                 else
-                    Net.H.Move(i,j)=3;
+                    dP = Net.P(i,j) - Net.P(i,j-1);
                 end
+            end
+
+            Pc = 2*Net.sigma*cos(Net.theta)/sqrt(Net.H.A(i,j)/pi);
+            if move && dP > Pc + pTol
+                Net.H.Move(i,j)=1;
+            elseif move && dP >= Pc - pTol && oldMoveH(i,j)==1
+                Net.H.Move(i,j)=1;
+            elseif move
+                Net.H.Move(i,j)=3;
             else
                 Net.H.Move(i,j)=2;
             end
@@ -107,44 +112,49 @@ function Net = calcCanMove(Net)
                 continue
             end
             
+            dir = Net.V.Dir(i,j);
             move = false;
-            
-            if Net.V.Q(i,j)>=0 % движение вниз
-                if i == Net.V.Ny % нижняя граница - выход
+            if dir > 0
+                if i == Net.V.Ny
                     move = true;
-                elseif WaterConnectedV(i+1,j)
-                    move = true;
-                elseif i <= Net.H.Ny && ...
-                        (WaterConnectedH(i,j) || WaterConnectedH(i,j+1))
+                elseif WaterConnectedV(i+1,j) || ...
+                        WaterConnectedH(i,j) || WaterConnectedH(i,j+1)
                     move = true;
                 end
-            
-            elseif Net.V.Q(i,j)<0 % движение вверх
-                if i == 1 % верхняя граница - вход
+            elseif dir < 0
+                if i == 1
                     move = true;
-                elseif WaterConnectedV(i-1,j)
-                    move = true;
-                elseif i-1 <= Net.H.Ny && ...
-                        (WaterConnectedH(i-1,j) || WaterConnectedH(i-1,j+1))
+                elseif WaterConnectedV(i-1,j) || ...
+                        WaterConnectedH(i-1,j) || WaterConnectedH(i-1,j+1)
                     move = true;
                 end
             end
-            
-            if move
+
+            if dir > 0
                 if i == 1
-                    dP = abs(Net.V.P0 - Net.P(1,j));
+                    dP = Net.V.P0 - Net.P(1,j);
                 elseif i == Net.V.Ny
-                    dP = abs(Net.P(i-1,j));
+                    dP = Net.P(i-1,j);
                 else
-                    dP = abs(Net.P(i-1,j) - Net.P(i,j));
+                    dP = Net.P(i-1,j) - Net.P(i,j);
                 end
-            
-                Pc = 2*Net.sigma*cos(Net.theta)/sqrt(Net.V.A(i,j)/pi);
-                if dP > Pc
-                    Net.V.Move(i,j)=1;
+            else
+                if i == 1
+                    dP = Net.P(1,j) - Net.V.P0;
+                elseif i == Net.V.Ny
+                    dP = -Net.P(i-1,j);
                 else
-                    Net.V.Move(i,j)=3;
+                    dP = Net.P(i,j) - Net.P(i-1,j);
                 end
+            end
+
+            Pc = 2*Net.sigma*cos(Net.theta)/sqrt(Net.V.A(i,j)/pi);
+            if move && dP > Pc + pTol
+                Net.V.Move(i,j)=1;
+            elseif move && dP >= Pc - pTol && oldMoveV(i,j)==1
+                Net.V.Move(i,j)=1;
+            elseif move
+                Net.V.Move(i,j)=3;
             else
                 Net.V.Move(i,j)=2;
             end

@@ -24,7 +24,7 @@ function Net = calcRegime(Net)
             else
                 pRight = Net.P(i,j);
             end
-            dp = pLeft - pRight;
+            dp = Net.H.Dir(i,j)*(pLeft - pRight);
             Pc = 2*Net.sigma*cos(Net.theta)/r;
             dpStar = dp - Pc;
             Sat = Net.H.Sat(i,j);
@@ -50,7 +50,7 @@ function Net = calcRegime(Net)
             else
                 pBottom = Net.P(i,j);
             end
-            dp = pTop - pBottom;
+            dp = Net.V.Dir(i,j)*(pTop - pBottom);
             Pc = 2*Net.sigma*cos(Net.theta)/r;
             dpStar = dp - Pc;
             Sat = Net.V.Sat(i,j);

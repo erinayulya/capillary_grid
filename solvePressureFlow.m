@@ -63,10 +63,12 @@ function Net = solvePressureFlow(Net)
     %% Основной расчет
     %%-------------------------------------------------------
     
-    % Масштабы фиксированы на время одного решения (State/Regime/Move).
-    [xScale,fScale,tol] = pressureFlowScaling(Net,idxP,idxQH,idxQV);
+    % Масштабирование переменных
+    [xScale,fScale] = pressureFlowScaling(Net,idxP,idxQH,idxQV);
     Dx = spdiags(xScale,0,n,n);
     DfInv = spdiags(1./fScale,0,n,n);
+
+    tol = 1e-8; % допуск безразмерной невязки
     maxIter = 50; % максимальное кол-во шагов поиска решения
     
     % F - невязка текущего решения
@@ -84,7 +86,6 @@ function Net = solvePressureFlow(Net)
         end
 
         % Если точность не достигнута:
-        % Решаем относительно безразмерного шага, возвращаем шаг в СИ.
         dz = (DfInv*J*Dx)\(-F./fScale);
         dx = xScale.*dz;
 
@@ -111,11 +112,10 @@ function Net = solvePressureFlow(Net)
         X = Xtrial; % новое приближение решения выбрано
     end
     
-    % После последнего шага F мог относиться к предыдущему X.
     [F,~] = calcResidualJacobian(Net,X,idxP,idxQH,idxQV);
     err = norm(F./fScale,inf);
     if ~isfinite(err) || err >= tol
-        disp(['Newton iter = ',num2str(iter),', scaled err = ',num2str(err)])
+        disp(['Newton iter = ',num2str(iter),', err = ',num2str(err)])
         warning('Newton: не достигнута заданная точность.')
     end
     
@@ -132,5 +132,4 @@ function Net = solvePressureFlow(Net)
         reshape(X(idxQV(:)),Net.V.Ny,Net.V.Nx);
     
     Net.NewtonIterations = iter;
-    Net.NewtonScaledResidual = err;
 end
