@@ -34,8 +34,10 @@ function Net = calcCanMove(Net)
             end
             
             move = false;
-            
-            if Net.H.Q(i,j) > 0 % движение вправо
+            if j==1
+                move=true;
+
+            elseif Net.H.Q(i,j) >= 0 % движение вправо
                 if j == Net.H.Nx % правая граница - выход
                     move = true;
                 elseif WaterConnectedH(i,j+1)
@@ -50,15 +52,28 @@ function Net = calcCanMove(Net)
             elseif Net.H.Q(i,j) < 0 % движение влево
                 if j > 1 && WaterConnectedH(i,j-1)
                     move = true;
-                elseif i <= Net.V.Ny && WaterConnectedV(i,j-1)
+                elseif i <= Net.V.Ny && j > 1 && WaterConnectedV(i,j-1)
                     move = true;
-                elseif i > 1 && WaterConnectedV(i-1,j-1)
+                elseif i > 1 && j > 1 && WaterConnectedV(i-1,j-1)
                     move = true;
                 end
             end
         
             if move
-                Net.H.Move(i,j)=1;
+                if j == 1
+                    dP = abs(Net.H.P0 - Net.P(i,1));
+                elseif j == Net.H.Nx
+                    dP = abs(Net.P(i,j-1));
+                else
+                    dP = abs(Net.P(i,j-1) - Net.P(i,j));
+                end
+            
+                Pc = 2*Net.sigma*cos(Net.theta)/sqrt(Net.H.A(i,j)/pi);
+                if dP > Pc
+                    Net.H.Move(i,j)=1;
+                else
+                    Net.H.Move(i,j)=0;
+                end
             else
                 Net.H.Move(i,j)=2;
             end
@@ -81,7 +96,7 @@ function Net = calcCanMove(Net)
             
             move = false;
             
-            if Net.V.Q(i,j)>0 % движение вниз
+            if Net.V.Q(i,j)>=0 % движение вниз
                 if i == Net.V.Ny % нижняя граница - выход
                     move = true;
                 elseif WaterConnectedV(i+1,j)
@@ -103,7 +118,20 @@ function Net = calcCanMove(Net)
             end
             
             if move
-                Net.V.Move(i,j)=1;
+                if i == 1
+                    dP = abs(Net.V.P0 - Net.P(1,j));
+                elseif i == Net.V.Ny
+                    dP = abs(Net.P(i-1,j));
+                else
+                    dP = abs(Net.P(i-1,j) - Net.P(i,j));
+                end
+            
+                Pc = 2*Net.sigma*cos(Net.theta)/sqrt(Net.V.A(i,j)/pi);
+                if dP > Pc
+                    Net.V.Move(i,j)=1;
+                else
+                    Net.V.Move(i,j)=0;
+                end
             else
                 Net.V.Move(i,j)=2;
             end
