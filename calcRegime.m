@@ -6,42 +6,60 @@
 % dp* = dp - pcap
 
 function Net = calcRegime(Net)
-    
+
     %% Горизонтальные капилляры
-    for i = 1:Net.Ny
-        for j = 1:Net.Nx
-            if Net.StateH(i,j) ~= 1 || Net.MoveH(i, j)==2
-               continue % - нет мениска и Пуазейль или заблокирован
-          end
-    
-          r = sqrt(Net.Ah(i,j)/pi);
-          dp = Net.P(i,j) - Net.P(i,j+1);
-          Pc = 2*Net.sigma*cos(Net.theta)/r;
-          dpStar = dp - Pc;
-          Sat = Net.SatH(i,j);
-    
-          Net.RegimeH(i,j) = calcOneRegime(r, Sat, dpStar, Net);
+    for i = 1:Net.H.Ny
+        for j = 1:Net.H.Nx
+            if Net.H.State(i,j) ~= 1 || Net.H.Move(i,j) ~= 1
+                continue % - нет мениска и Пуазейль или заблокирован
+            end
+            r = sqrt(Net.H.A(i,j)/pi);
+            if j == 1
+                pLeft = Net.H.P0;
+            else
+                pLeft = Net.P(i,j-1);
+            end
+            if j == Net.H.Nx
+                pRight = 0;
+            else
+                pRight = Net.P(i,j);
+            end
+            dp = pLeft - pRight;
+            Pc = 2*Net.sigma*cos(Net.theta)/r;
+            dpStar = dp - Pc;
+            Sat = Net.H.Sat(i,j);
+            
+            Net.H.Regime(i,j) = calcOneRegime(r, Sat, dpStar, Net);
         end
     end
     
     %% Вертикальные капилляры
-    for i = 1:Net.Ny-1
-        for j = 1:Net.Nx-1
-    
-          if Net.StateV(i,j) ~= 1 || Net.MoveV(i, j)==2
-              continue
-          end
-    
-           r = sqrt(Net.Av(i,j)/pi);
-           dp = Net.P(i,j+1) - Net.P(i+1,j+1);
-           Pc = 2*Net.sigma*cos(Net.theta)/r;
-           dpStar = dp - Pc;
-           Sat = Net.SatV(i,j);
-    
-           Net.RegimeV(i,j) = calcOneRegime(r, Sat, dpStar, Net);
+    for i = 1:Net.V.Ny
+        for j = 1:Net.V.Nx
+            if Net.V.State(i,j) ~= 1 || Net.V.Move(i,j) ~= 1
+                continue
+            end
+            r = sqrt(Net.V.A(i,j)/pi);
+            if i == 1
+                pTop = Net.V.P0;
+            else
+                pTop = Net.P(i-1,j);
+            end
+            if i == Net.V.Ny
+                pBottom = 0;
+            else
+                pBottom = Net.P(i,j);
+            end
+            dp = pTop - pBottom;
+            Pc = 2*Net.sigma*cos(Net.theta)/r;
+            dpStar = dp - Pc;
+            Sat = Net.V.Sat(i,j);
+
+            Net.V.Regime(i,j) = calcOneRegime(r, Sat, dpStar, Net);
         end
     end
 end
+
 
 % Функция вычисляет режим 1/2/3 для капилляра с мениском
 function Regime = calcOneRegime(r, Sat, dpStar, Net)
@@ -53,9 +71,7 @@ function Regime = calcOneRegime(r, Sat, dpStar, Net)
     
     l2 = Sat*Net.L;
     l1 = Net.L-l2;
-    
     k = Net.kdyn;
-    
     Aeff = 8/r^2*(Net.mu1*l1 + Net.mu2*l2) ...
         - 2*k^3/(3*r)*mu_sm*sin(Net.theta);
     
@@ -66,14 +82,11 @@ function Regime = calcOneRegime(r, Sat, dpStar, Net)
     
     alpha = r*Aeff/(2*mu_sm);
     beta = k*sin(Net.theta);
-    
-    PiCrit = (beta/alpha)^(3/2);
-    
+    PiCrit = sqrt(beta^3/alpha);
     Pi = r*dpStar/(2*Net.sigma);
-    
-    if Pi < PiCrit/2
+    if Pi < PiCrit/Net.bound
         Regime = 1; % - капиллярное плато
-    elseif Pi > 2*PiCrit
+    elseif Pi > Net.bound*PiCrit
         Regime = 3; % - вязкий режим
     else
         Regime = 2; % - переходной (полное уравнение)
