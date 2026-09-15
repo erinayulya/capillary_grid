@@ -20,6 +20,7 @@ function Net = calcState(Net)
                 Net.H.State(i,j)=2;
                 Net.H.Sat(i,j)=1;
                 Net.H.Move(i,j)=0;
+                Net.H.Dir(i,j)=0;
                 Net.H.Regime(i,j)=0;
                 
                 nodeRow=i;
@@ -45,6 +46,7 @@ function Net = calcState(Net)
                 Net.V.State(i,j)=2;
                 Net.V.Sat(i,j)=1;
                 Net.V.Move(i,j)=0;
+                Net.V.Dir(i,j)=0;
                 Net.V.Regime(i,j)=0;
                 if Net.V.Q(i,j)>=0
                     nodeRow=i;
@@ -81,6 +83,7 @@ function Net = processNode(Net,row,col,from)
             Net.H.State(row,col) = 1;
             Net.H.Sat(row,col) = 0;
             Net.H.Move(row,col) = 3;
+            Net.H.Dir(row,col) = 1;
             Net.H.Regime(row,col) = 0;
         end
     end
@@ -93,6 +96,7 @@ function Net = processNode(Net,row,col,from)
             Net.H.State(row,col-1) = 1;
             Net.H.Sat(row,col-1) = 0;
             Net.H.Move(row,col-1) = 3;
+            Net.H.Dir(row,col-1) = -1;
             Net.H.Regime(row,col-1) = 0;
         end
     end
@@ -105,6 +109,7 @@ function Net = processNode(Net,row,col,from)
             Net.V.State(row+1,col-1) = 1;
             Net.V.Sat(row+1,col-1) = 0;
             Net.V.Move(row+1,col-1) = 3;
+            Net.V.Dir(row+1,col-1) = 1;
             Net.V.Regime(row+1,col-1) = 0;
         end
     end
@@ -117,6 +122,7 @@ function Net = processNode(Net,row,col,from)
             Net.V.State(row,col-1) = 1;
             Net.V.Sat(row,col-1) = 0;
             Net.V.Move(row,col-1) = 3;
+            Net.V.Dir(row,col-1) = -1;
             Net.V.Regime(row,col-1) = 0;
         end
     end
