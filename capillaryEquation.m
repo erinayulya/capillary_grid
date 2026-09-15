@@ -37,7 +37,7 @@ function [f,dfdp,dfdq] = capillaryEquation(...
     %% Две фазы, мениск
     %%-------------------------------------------------------
     %% Заблокированный мениск
-    if state==1 && move==2 
+    if state==1 && move~=1 
         f=q;
         dfdp=0;
         dfdq=1;
@@ -86,10 +86,11 @@ function [f,dfdp,dfdq] = capillaryEquation(...
                 -Aeff/A ...
                 -B/(3*A*abs(vreg)^(2/3));
     
-        case 3 % Вязкая асимптота
-            f = dpStar-Aeff*(q/A);
-            dfdp = 1;
-            dfdq = -Aeff/A;
+        case 3
+             % Вязкое вытеснение
+             f = dpStar-Aeff*(q/A);
+             dfdp = 1;
+             dfdq = -Aeff/A;
     end
 end
 
