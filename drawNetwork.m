@@ -1,4 +1,8 @@
-function drawNetwork(Net)
+function drawNetwork(Net,move)
+
+if nargin < 2
+    move = false;
+end
 
 figure(1)
 clf
@@ -73,6 +77,10 @@ for i = 1:Net.H.Ny
 
         end
 
+        if move
+            drawMoveMarker((x1+x2)/2,y+0.12,Net.H.Move(i,j));
+        end
+
     end
 
 end
@@ -139,9 +147,14 @@ for i = 1:Net.V.Ny
 
         end
 
+        if move
+            drawMoveMarker(x+0.12,(y1+y2)/2,Net.V.Move(i,j));
+        end
+
     end
 
 end
+
 
 %%---------------------------------------------------
 %% Узлы
@@ -161,6 +174,7 @@ for i = 1:Ny
     end
 
 end
+
 
 %%---------------------------------------------------
 %% Предыдущее положение менисков
@@ -251,5 +265,27 @@ ylabel('y')
 title('Распространение второй фазы')
 
 drawnow
+
+end
+
+
+function drawMoveMarker(x,y,moveState)
+
+switch moveState
+    case 1
+        color = [0 0.6 0];
+    case 2
+        color = 'r';
+    case 3
+        color = [0.5 0.5 0.5];
+    otherwise
+        return
+end
+
+plot(x,y,...
+    'o',...
+    'MarkerEdgeColor',color,...
+    'MarkerFaceColor',color,...
+    'MarkerSize',5);
 
 end
