@@ -43,11 +43,11 @@ function Net = calcState(Net)
                 Net.V.State(i,j)=2;
                 Net.V.Sat(i,j)=1;
                 if Net.V.Q(i,j)>=0
-                    nodeRow=i+1;
-                    nodeCol=j;
+                    nodeRow=i;
+                    nodeCol=j+1;
                     from='U'; % from upper
                 else
-                    nodeRow=i;
+                    nodeRow=i-1;
                     nodeCol=j+1;
                     from='D'; % from down
                 end
@@ -71,7 +71,8 @@ function Net = processNode(Net,row,col,from)
     %-------------------------------------------------------
     % Горизонтальный вправо
     %-------------------------------------------------------
-    if col <= Net.H.Nx && from ~= 'R'
+    if row >= 1 && row <= Net.H.Ny && ...
+            col >= 1 && col <= Net.H.Nx && from ~= 'R'
         if Net.H.State(row,col) == 0 && Net.H.Q(row,col) > 0
             Net.H.State(row,col) = 1;
             Net.H.Sat(row,col) = 0;
@@ -81,7 +82,7 @@ function Net = processNode(Net,row,col,from)
     %-------------------------------------------------------
     % Горизонтальный влево
     %-------------------------------------------------------
-    if col > 1 && from ~= 'L'
+    if row >= 1 && row <= Net.H.Ny && col > 1 && from ~= 'L'
         if Net.H.State(row,col-1) == 0 && Net.H.Q(row,col-1) < 0
             Net.H.State(row,col-1) = 1;
             Net.H.Sat(row,col-1) = 0;
@@ -91,20 +92,20 @@ function Net = processNode(Net,row,col,from)
     %-------------------------------------------------------
     % Вертикальный вниз
     %-------------------------------------------------------
-    if row <= Net.V.Ny && from ~= 'D'
-        if Net.V.State(row,col) == 0 && Net.V.Q(row,col) > 0
-            Net.V.State(row,col) = 1;
-            Net.V.Sat(row,col) = 0;
+    if row < Net.V.Ny && col > 1 && col-1 <= Net.V.Nx && from ~= 'D'
+        if Net.V.State(row+1,col-1) == 0 && Net.V.Q(row+1,col-1) > 0
+            Net.V.State(row+1,col-1) = 1;
+            Net.V.Sat(row+1,col-1) = 0;
         end
     end
 
     %-------------------------------------------------------
     % Вертикальный вверх
     %-------------------------------------------------------
-    if row > 1 && from ~= 'U'
-        if Net.V.State(row-1,col) == 0 && Net.V.Q(row-1,col) < 0
-            Net.V.State(row-1,col) = 1;
-            Net.V.Sat(row-1,col) = 0;
+    if row >= 1 && col > 1 && col-1 <= Net.V.Nx && from ~= 'U'
+        if Net.V.State(row,col-1) == 0 && Net.V.Q(row,col-1) < 0
+            Net.V.State(row,col-1) = 1;
+            Net.V.Sat(row,col-1) = 0;
         end
     end
 end
