@@ -63,9 +63,10 @@ function Net = solvePressureFlow(Net)
     %% Основной расчет
     %%-------------------------------------------------------
     
-    % Невязки расхода имеют порядок 1e-14...1e-9 м3/с, поэтому
-    % абсолютный допуск 1e-8 преждевременно принимал старое решение.
-    tol = 1e-13;
+    % Масштабы фиксированы на время одного решения (State/Regime/Move).
+    [xScale,fScale,tol] = pressureFlowScaling(Net,idxP,idxQH,idxQV);
+    Dx = spdiags(xScale,0,n,n);
+    DfInv = spdiags(1./fScale,0,n,n);
     maxIter = 50; % максимальное кол-во шагов поиска решения
     
     % F - невязка текущего решения
@@ -77,13 +78,15 @@ function Net = solvePressureFlow(Net)
             Net,X,idxP,idxQH,idxQV);
     
         % Проверка невязки:
-        err = norm(F,inf);
+        err = norm(F./fScale,inf);
         if err < tol
             break % точность достигнута, решение найдено
         end
 
         % Если точность не достигнута:
-        dx = J\(-F);
+        % Решаем относительно безразмерного шага, возвращаем шаг в СИ.
+        dz = (DfInv*J*Dx)\(-F./fScale);
+        dx = xScale.*dz;
 
         if any(~isfinite(dx))
             error('Newton: получен некорректный шаг.')
@@ -95,7 +98,7 @@ function Net = solvePressureFlow(Net)
             Xtrial = X + alpha*dx;
             [Ftrial, ~] = calcResidualJacobian(...
                 Net,Xtrial,idxP,idxQH,idxQV);
-            if norm(Ftrial,inf) < err
+            if norm(Ftrial./fScale,inf) < err
                 break % Xtrial подходит, возвращаемся в начало
             end
             alpha = alpha/2; % адаптирование шага, если невязка выросла
@@ -108,8 +111,11 @@ function Net = solvePressureFlow(Net)
         X = Xtrial; % новое приближение решения выбрано
     end
     
-    if norm(F,inf) >= tol
-        disp(['Newton iter = ',num2str(iter),', err = ',num2str(norm(F,inf))])
+    % После последнего шага F мог относиться к предыдущему X.
+    [F,~] = calcResidualJacobian(Net,X,idxP,idxQH,idxQV);
+    err = norm(F./fScale,inf);
+    if ~isfinite(err) || err >= tol
+        disp(['Newton iter = ',num2str(iter),', scaled err = ',num2str(err)])
         warning('Newton: не достигнута заданная точность.')
     end
     
@@ -126,4 +132,5 @@ function Net = solvePressureFlow(Net)
         reshape(X(idxQV(:)),Net.V.Ny,Net.V.Nx);
     
     Net.NewtonIterations = iter;
+    Net.NewtonScaledResidual = err;
 end

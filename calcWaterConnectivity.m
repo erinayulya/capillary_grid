@@ -106,26 +106,10 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             end
     
             % -------------------------------------------------
-            % Через левый узел: V(i-1,j-1)
+            % Через левый узел сверху: V(i,j-1)
             % --------------------------------------------------
     
-            if i > 1 && j-1 >= 1 && ...
-                    j-1 <= Net.V.Nx
-                if Net.V.Sat(i-1,j-1) == 0 && ...
-                        ~WaterConnectedV(i-1,j-1)
-                    WaterConnectedV(i-1,j-1) = true;
-                    tail = tail + 1;
-                    queueType(tail) = 2;
-                    queueI(tail) = i-1;
-                    queueJ(tail) = j-1;
-                end
-            end
-
-            % -------------------------------------------------
-            % Через левый узел: V(i,j-1)
-            % --------------------------------------------------
-    
-            if i <= Net.V.Ny && ...
+            if (Net.VerticalBC || (i ~= 1 && i ~= Net.V.Ny)) && ...
                     j-1 >= 1 && ...
                     j-1 <= Net.V.Nx
                 if Net.V.Sat(i,j-1) == 0 && ...
@@ -134,6 +118,24 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
                     tail = tail + 1;
                     queueType(tail) = 2;
                     queueI(tail) = i;
+                    queueJ(tail) = j-1;
+                end
+            end
+
+            % -------------------------------------------------
+            % Через левый узел снизу: V(i+1,j-1)
+            % --------------------------------------------------
+    
+            if i+1 <= Net.V.Ny && ...
+                    (Net.VerticalBC || (i+1 ~= 1 && i+1 ~= Net.V.Ny)) && ...
+                    j-1 >= 1 && ...
+                    j-1 <= Net.V.Nx
+                if Net.V.Sat(i+1,j-1) == 0 && ...
+                        ~WaterConnectedV(i+1,j-1)
+                    WaterConnectedV(i+1,j-1) = true;
+                    tail = tail + 1;
+                    queueType(tail) = 2;
+                    queueI(tail) = i+1;
                     queueJ(tail) = j-1;
                 end
             end
@@ -154,11 +156,96 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             end
     
             % -------------------------------------------------
-            % Через правый узел: V(i-1,j)
+            % Через правый узел сверху: V(i,j)
+            % --------------------------------------------------
+    
+            if (Net.VerticalBC || (i ~= 1 && i ~= Net.V.Ny)) && ...
+                    j <= Net.V.Nx
+                if Net.V.Sat(i,j) == 0 && ...
+                        ~WaterConnectedV(i,j)
+                    WaterConnectedV(i,j) = true;
+                    tail = tail + 1;
+                    queueType(tail) = 2;
+                    queueI(tail) = i;
+                    queueJ(tail) = j;
+                end
+            end
+
+            % -------------------------------------------------
+            % Через правый узел снизу: V(i+1,j)
+            % --------------------------------------------------
+    
+            if i+1 <= Net.V.Ny && ...
+                    (Net.VerticalBC || (i+1 ~= 1 && i+1 ~= Net.V.Ny)) && ...
+                    j <= Net.V.Nx
+                if Net.V.Sat(i+1,j) == 0 && ...
+                        ~WaterConnectedV(i+1,j)
+                    WaterConnectedV(i+1,j) = true;
+                    tail = tail + 1;
+                    queueType(tail) = 2;
+                    queueI(tail) = i+1;
+                    queueJ(tail) = j;
+                end
+            end
+    
+    
+        % =====================================================
+        % Если текущий капилляр вертикальный
+        % ======================================================
+    
+        elseif type == 2
+
+            % Закрытый граничный капилляр не является частью области
+            % водной связности и не должен передавать метку в сеть.
+            if ~Net.VerticalBC && (i == 1 || i == Net.V.Ny)
+                continue
+            end
+    
+            % V(i,j) соединяет:
+            %
+            % верхний узел : (i,j)
+            % нижний узел  : (i+1,j)
+    
+            % -------------------------------------------------
+            % Через верхний узел: H(i-1,j)
             % --------------------------------------------------
     
             if i > 1 && ...
-                    j <= Net.V.Nx
+                    j <= Net.H.Nx
+                if Net.H.Sat(i-1,j) == 0 && ...
+                        ~WaterConnectedH(i-1,j)
+                    WaterConnectedH(i-1,j) = true;
+                    tail = tail + 1;
+                    queueType(tail) = 1;
+                    queueI(tail) = i-1;
+                    queueJ(tail) = j;
+                end
+            end
+    
+            % --------------------------------------------------
+            % Через верхний узел: H(i-1,j+1)
+            % --------------------------------------------------
+    
+            if i > 1 && ...
+                    j+1 <= Net.H.Nx
+                if Net.H.Sat(i-1,j+1) == 0 && ...
+                        ~WaterConnectedH(i-1,j+1)
+                    WaterConnectedH(i-1,j+1) = true;
+                    tail = tail + 1;
+                    queueType(tail) = 1;
+                    queueI(tail) = i-1;
+                    queueJ(tail) = j+1;
+                end
+            end
+    
+    
+            % -------------------------------------------------
+            % Через верхний узел: V(i-1,j)
+            % --------------------------------------------------
+    
+            if i > 1 && ...
+                    (Net.VerticalBC || ...
+                    (i-1 ~= 1 && i-1 ~= Net.V.Ny))
                 if Net.V.Sat(i-1,j) == 0 && ...
                         ~WaterConnectedV(i-1,j)
                     WaterConnectedV(i-1,j) = true;
@@ -170,40 +257,10 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
             end
     
             % -------------------------------------------------
-            % Через правый узел: V(i,j)
+            % Через нижний узел: H(i,j)
             % --------------------------------------------------
     
-            if i <= Net.V.Ny && ...
-                    j <= Net.V.Nx
-                if Net.V.Sat(i,j) == 0 && ...
-                        ~WaterConnectedV(i,j)
-                    WaterConnectedV(i,j) = true;
-                    tail = tail + 1;
-                    queueType(tail) = 2;
-                    queueI(tail) = i;
-                    queueJ(tail) = j;
-                end
-            end
-    
-    
-        % =====================================================
-        % Если текущий капилляр вертикальный
-        % ======================================================
-    
-        elseif type == 2
-    
-            % V(i,j) соединяет:
-            %
-            % верхний узел : (i,j)
-            % нижний узел  : (i+1,j)
-    
-            % -------------------------------------------------
-            % Через верхний узел: H(i,j)
-            % --------------------------------------------------
-    
-            if i >= 1 && ...
-                    i <= Net.H.Ny && ...
-                    j <= Net.H.Nx
+            if i <= Net.H.Ny
                 if Net.H.Sat(i,j) == 0 && ...
                         ~WaterConnectedH(i,j)
                     WaterConnectedH(i,j) = true;
@@ -214,12 +271,11 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
                 end
             end
     
-            % --------------------------------------------------
-            % Через верхний узел: H(i,j+1)
+            % -------------------------------------------------
+            % Через нижний узел: H(i,j+1)
             % --------------------------------------------------
     
-            if i >= 1 && ...
-                    i <= Net.H.Ny && ...
+            if i <= Net.H.Ny && ...
                     j+1 <= Net.H.Nx
                 if Net.H.Sat(i,j+1) == 0 && ...
                         ~WaterConnectedH(i,j+1)
@@ -231,58 +287,13 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
                 end
             end
     
-    
-            % -------------------------------------------------
-            % Через верхний узел: V(i-1,j)
-            % --------------------------------------------------
-    
-            if i > 1
-                if Net.V.Sat(i-1,j) == 0 && ...
-                        ~WaterConnectedV(i-1,j)
-                    WaterConnectedV(i-1,j) = true;
-                    tail = tail + 1;
-                    queueType(tail) = 2;
-                    queueI(tail) = i-1;
-                    queueJ(tail) = j;
-                end
-            end
-    
-            % -------------------------------------------------
-            % Через нижний узел: H(i+1,j)
-            % --------------------------------------------------
-    
-            if i+1 <= Net.H.Ny
-                if Net.H.Sat(i+1,j) == 0 && ...
-                        ~WaterConnectedH(i+1,j)
-                    WaterConnectedH(i+1,j) = true;
-                    tail = tail + 1;
-                    queueType(tail) = 1;
-                    queueI(tail) = i+1;
-                    queueJ(tail) = j;
-                end
-            end
-    
-            % -------------------------------------------------
-            % Через нижний узел: H(i+1,j+1)
-            % --------------------------------------------------
-    
-            if i+1 <= Net.H.Ny && ...
-                    j+1 <= Net.H.Nx
-                if Net.H.Sat(i+1,j+1) == 0 && ...
-                        ~WaterConnectedH(i+1,j+1)
-                    WaterConnectedH(i+1,j+1) = true;
-                    tail = tail + 1;
-                    queueType(tail) = 1;
-                    queueI(tail) = i+1;
-                    queueJ(tail) = j+1;
-                end
-            end
-    
             % -------------------------------------------------
             % Через нижний узел: V(i+1,j)
             % --------------------------------------------------
     
-            if i < Net.V.Ny
+            if i < Net.V.Ny && ...
+                    (Net.VerticalBC || ...
+                    (i+1 ~= 1 && i+1 ~= Net.V.Ny))
                 if Net.V.Sat(i+1,j) == 0 && ...
                         ~WaterConnectedV(i+1,j)
                     WaterConnectedV(i+1,j) = true;

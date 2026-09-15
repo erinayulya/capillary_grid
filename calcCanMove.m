@@ -53,7 +53,7 @@ function Net = calcCanMove(Net)
                 elseif i <= Net.V.Ny &&...
                        j <= Net.V.Nx && WaterConnectedV(i,j)
                     move = true;
-                elseif i > 1 && WaterConnectedV(i-1,j)
+                elseif i+1 <= Net.V.Ny && WaterConnectedV(i+1,j)
                     move = true;
                 end
             
@@ -62,7 +62,7 @@ function Net = calcCanMove(Net)
                     move = true;
                 elseif i <= Net.V.Ny && j > 1 && WaterConnectedV(i,j-1)
                     move = true;
-                elseif i > 1 && j > 1 && WaterConnectedV(i-1,j-1)
+                elseif i+1 <= Net.V.Ny && j > 1 && WaterConnectedV(i+1,j-1)
                     move = true;
                 end
             end
@@ -96,6 +96,11 @@ function Net = calcCanMove(Net)
     for i = 1:Net.V.Ny
         for j = 1:Net.V.Nx
             if Net.V.State(i,j)~=1 % пропуск, нет мениска
+                continue
+            end
+            if ~Net.VerticalBC && (i == 1 || i == Net.V.Ny)
+                % Закрытый граничный капилляр не может быть подвижным.
+                Net.V.Move(i,j)=2;
                 continue
             end
             if oldMoveV(i,j)==2 % пропуск, заблокирован

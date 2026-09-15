@@ -49,23 +49,21 @@ function [F,J] = calcResidualJacobian(...
             colIdx(end+1) = idxQH(i,j);
             jacVal(end+1) = -1;
     
-            % Поток вверх
-            if i > 1
-                q = X(idxQV(i-1,j-1));
-                F(row) = F(row)+q;
-                rowIdx(end+1) = row;
-                colIdx(end+1) = idxQV(i-1,j-1);
-                jacVal(end+1) = 1;
-            end
+            % Поток сверху. V(i,:) соединяет верхнюю сторону узла
+            % строки i с этим узлом.
+            q = X(idxQV(i,j-1));
+            F(row) = F(row)+q;
+            rowIdx(end+1) = row;
+            colIdx(end+1) = idxQV(i,j-1);
+            jacVal(end+1) = 1;
     
-            % Поток вниз
-            if i < Net.H.Ny
-                q = X(idxQV(i,j-1));
-                F(row) = F(row)-q;
-                rowIdx(end+1) = row;
-                colIdx(end+1) = idxQV(i,j-1);
-                jacVal(end+1) = -1;
-            end
+            % Поток вниз. V(i+1,:) соединяет этот узел с нижней
+            % стороной узла строки i.
+            q = X(idxQV(i+1,j-1));
+            F(row) = F(row)-q;
+            rowIdx(end+1) = row;
+            colIdx(end+1) = idxQV(i+1,j-1);
+            jacVal(end+1) = -1;
         end
     end
     
