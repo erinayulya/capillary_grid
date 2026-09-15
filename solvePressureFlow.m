@@ -47,7 +47,7 @@ function Net = solvePressureFlow(Net)
         for i = 1:Net.H.Ny
             for j = 1:Net.H.Nx
                 if Net.H.State(i,j) == 1
-                    X(idxQH(i,j)) = 1e-15; % ненулевая малая величина
+                    X(idxQH(i,j)) = 1e-9; % малая величина
                 end
             end
         end
@@ -63,7 +63,9 @@ function Net = solvePressureFlow(Net)
     %% Основной расчет
     %%-------------------------------------------------------
     
-    tol = 1e-10;  % таргетное значение невязки
+    % Невязки расхода имеют порядок 1e-14...1e-9 м3/с, поэтому
+    % абсолютный допуск 1e-8 преждевременно принимал старое решение.
+    tol = 1e-13;
     maxIter = 50; % максимальное кол-во шагов поиска решения
     
     % F - невязка текущего решения
@@ -79,9 +81,10 @@ function Net = solvePressureFlow(Net)
         if err < tol
             break % точность достигнута, решение найдено
         end
-    
+
         % Если точность не достигнута:
         dx = J\(-F);
+
         if any(~isfinite(dx))
             error('Newton: получен некорректный шаг.')
         end
@@ -106,6 +109,7 @@ function Net = solvePressureFlow(Net)
     end
     
     if norm(F,inf) >= tol
+        disp(['Newton iter = ',num2str(iter),', err = ',num2str(norm(F,inf))])
         warning('Newton: не достигнута заданная точность.')
     end
     

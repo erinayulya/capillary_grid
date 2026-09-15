@@ -73,13 +73,6 @@ for i = 1:Net.H.Ny
 
         end
 
-        if Net.H.Regime(i,j) ~= 0
-            text((x1+x2)/2, y+0.12, ...
-                sprintf('%d',Net.H.Regime(i,j)), ...
-                'HorizontalAlignment','center', ...
-                'FontSize',9);
-        end
-
     end
 
 end
@@ -144,14 +137,6 @@ for i = 1:Net.V.Ny
                     'MarkerFaceColor','r',...
                     'MarkerSize',8);
 
-        end
-
-        if Net.V.Regime(i,j) ~= 0
-            text(x+0.12, (y1+y2)/2, ...
-                sprintf('%d',Net.V.Regime(i,j)), ...
-                'HorizontalAlignment','left', ...
-                'VerticalAlignment','middle', ...
-                'FontSize',9);
         end
 
     end

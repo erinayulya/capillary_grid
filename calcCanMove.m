@@ -1,8 +1,13 @@
-%% Разрешено ли мениску движение (Net.Move)
+%% Обновление состояния движения менисков (Net.Move)
 %
-% Функция определяет, может ли мениск продолжить движение в следующем
-% динамическом шаге. 
-% Условие - связность водной фазы либо правая граница.
+% Move = 0: нет мениска (State ~= 1);
+% Move = 1: мениск подвижен;
+% Move = 2: мениск защемлен из-за потери связности по воде;
+% Move = 3: мениск временно удерживается, так как dP <= Pc.
+%
+% Мениск с Move = 3 проверяется заново на каждом шаге и может перейти
+% в Move = 1. Мениск с Move = 2 остается защемленным.
+% Условие движения - связность водной фазы либо правая граница.
 % Связность определяется основной функцией calcWaterConnectivity()
 
 function Net = calcCanMove(Net)
@@ -10,12 +15,15 @@ function Net = calcCanMove(Net)
     oldMoveH = Net.H.Move;
     oldMoveV = Net.V.Move;
     
-    Net.H.Move = zeros(size(Net.H.State));
-    Net.V.Move = zeros(size(Net.V.State));
+    % Move = 0 оставляется только капиллярам без мениска. Все мениски
+    % по умолчанию считаются временно удержанными, пока не пройдут
+    % проверки связности и капиллярного порога.
+    Net.H.Move = 3*(Net.H.State == 1);
+    Net.V.Move = 3*(Net.V.State == 1);
     
     % Ранее заблокированные капилляры остаются заблокированными
-    Net.H.Move(oldMoveH==2) = 2;
-    Net.V.Move(oldMoveV==2) = 2;
+    Net.H.Move((oldMoveH==2) & (Net.H.State==1)) = 2;
+    Net.V.Move((oldMoveV==2) & (Net.V.State==1)) = 2;
     
     % Определение связности водяной фазы
     [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net);
@@ -72,7 +80,7 @@ function Net = calcCanMove(Net)
                 if dP > Pc
                     Net.H.Move(i,j)=1;
                 else
-                    Net.H.Move(i,j)=0;
+                    Net.H.Move(i,j)=3;
                 end
             else
                 Net.H.Move(i,j)=2;
@@ -130,7 +138,7 @@ function Net = calcCanMove(Net)
                 if dP > Pc
                     Net.V.Move(i,j)=1;
                 else
-                    Net.V.Move(i,j)=0;
+                    Net.V.Move(i,j)=3;
                 end
             else
                 Net.V.Move(i,j)=2;
