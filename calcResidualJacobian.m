@@ -127,28 +127,36 @@ function [F,J] = calcResidualJacobian(...
             row = idxQV(i,j);
             q = X(row);
     
-            % Давление сверху
-            if i == 1
-                pTop = Net.V.P0;
+            if ~Net.VerticalBC && (i == 1 || i == Net.V.Ny)
+                % Верхняя и нижняя границы непроницаемы:
+                % расход через граничный капилляр равен нулю.
+                f = q;
+                dfdp = 0;
+                dfdq = 1;
             else
-                pTop = X(idxP(i-1,j));
+                % Давление сверху
+                if i == 1
+                    pTop = Net.V.P0;
+                else
+                    pTop = X(idxP(i-1,j));
+                end
+    
+                % Давление снизу
+                if i == Net.V.Ny
+                    pBottom = 0;
+                else
+                    pBottom = X(idxP(i,j));
+                end
+    
+                dp = pTop-pBottom;
+    
+                [f,dfdp,dfdq] = capillaryEquation(...
+                    Net,dp,q,Net.V.A(i,j),...
+                    Net.V.Sat(i,j),...
+                    Net.V.State(i,j),...
+                    Net.V.Regime(i,j),...
+                    Net.V.Move(i,j));
             end
-    
-            % Давление снизу
-            if i == Net.V.Ny
-                pBottom = 0;
-            else
-                pBottom = X(idxP(i,j));
-            end
-    
-            dp = pTop-pBottom;
-    
-            [f,dfdp,dfdq] = capillaryEquation(...
-                Net,dp,q,Net.V.A(i,j),...
-                Net.V.Sat(i,j),...
-                Net.V.State(i,j),...
-                Net.V.Regime(i,j),...
-                Net.V.Move(i,j));
     
             F(row) = f;
     
