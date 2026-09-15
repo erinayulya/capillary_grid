@@ -74,7 +74,13 @@ Net.H.Regime(:,1) = 3;
 
 %% ---------- Первый расчет ------------------
 
-Net = updatePressureFlow(Net);
+Net = solvePressureFlow(Net);
+
+Net = calcCanMove(Net);
+
+Net = calcRegime(Net);
+
+Net = solvePressureFlow(Net);
 
 Net = calcTimeStep(Net);
 
@@ -105,13 +111,21 @@ while true
     Net.V.Sat_prev = Net.V.Sat;
     Net.H.State_prev = Net.H.State;
     Net.V.State_prev = Net.V.State;
+    Net.H.Dir_prev = Net.H.Dir;
+    Net.V.Dir_prev = Net.V.Dir;
 
     % Основной расчет
     Net = calcSaturation(Net);
 
     Net = calcState(Net);
 
-    Net = updatePressureFlow(Net);
+    Net = solvePressureFlow(Net);
+
+    Net = calcCanMove(Net);
+
+    Net = calcRegime(Net);
+
+    Net = solvePressureFlow(Net);
 
     Net = calcTimeStep(Net);
 

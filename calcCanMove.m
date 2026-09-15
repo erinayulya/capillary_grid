@@ -14,7 +14,6 @@ function Net = calcCanMove(Net)
 
     oldMoveH = Net.H.Move;
     oldMoveV = Net.V.Move;
-    pTol = 1e-8;
     
     % Move = 0 оставляется только капиллярам без мениска. Все мениски
     % по умолчанию считаются временно удержанными, пока не пройдут
@@ -81,9 +80,7 @@ function Net = calcCanMove(Net)
             end
 
             Pc = 2*Net.sigma*cos(Net.theta)/sqrt(Net.H.A(i,j)/pi);
-            if move && dP > Pc + pTol
-                Net.H.Move(i,j)=1;
-            elseif move && dP >= Pc - pTol && oldMoveH(i,j)==1
+            if move && dP > Pc
                 Net.H.Move(i,j)=1;
             elseif move
                 Net.H.Move(i,j)=3;
@@ -149,9 +146,7 @@ function Net = calcCanMove(Net)
             end
 
             Pc = 2*Net.sigma*cos(Net.theta)/sqrt(Net.V.A(i,j)/pi);
-            if move && dP > Pc + pTol
-                Net.V.Move(i,j)=1;
-            elseif move && dP >= Pc - pTol && oldMoveV(i,j)==1
+            if move && dP > Pc
                 Net.V.Move(i,j)=1;
             elseif move
                 Net.V.Move(i,j)=3;

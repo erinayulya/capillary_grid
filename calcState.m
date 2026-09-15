@@ -17,6 +17,7 @@ function Net = calcState(Net)
     for i = 1:Net.H.Ny
         for j = 1:Net.H.Nx
             if Net.H.State(i,j)==1 && Net.H.Sat(i,j)>=1-tol
+                dir = Net.H.Dir(i,j);
                 Net.H.State(i,j)=2;
                 Net.H.Sat(i,j)=1;
                 Net.H.Move(i,j)=0;
@@ -24,7 +25,7 @@ function Net = calcState(Net)
                 Net.H.Regime(i,j)=0;
                 
                 nodeRow=i;
-                if Net.H.Q(i,j)>=0
+                if dir > 0
                     nodeCol=j+1;
                     from='L'; % from left side
                 else
@@ -43,12 +44,13 @@ function Net = calcState(Net)
     for i=1:Net.V.Ny
         for j=1:Net.V.Nx
             if Net.V.State(i,j)==1 && Net.V.Sat(i,j)>=1-tol
+                dir = Net.V.Dir(i,j);
                 Net.V.State(i,j)=2;
                 Net.V.Sat(i,j)=1;
                 Net.V.Move(i,j)=0;
                 Net.V.Dir(i,j)=0;
                 Net.V.Regime(i,j)=0;
-                if Net.V.Q(i,j)>=0
+                if dir > 0
                     nodeRow=i;
                     nodeCol=j+1;
                     from='U'; % from upper
