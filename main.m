@@ -2,7 +2,7 @@ clear all
 %% ---------------- Параметры ----------------
 if ~exist('Net', 'var')
 
-    Net.H.P0 = 1000;        % Давление на левой границе, Па
+    Net.H.P0 = 1500;        % Давление на левой границе, Па
     Net.VerticalBC = false; % Верхняя и нижняя границы проницаемы
     Net.V.P0 = 200;         % Па
     
@@ -20,12 +20,12 @@ if ~exist('Net', 'var')
     Net.H.A = coef*[... % Площади горизонтальных капилляров, м2
         1 1 1 1;
         1 2 1 1;
-        1 1 1 1];
+        1 3 1 1];
 
     Net.V.A = coef*[... % Площади вертикальных капилляров, м2
         1 1 1;
         1 1 1;
-        1 5 1;
+        1 1 1;
         1 1 1];
 end
 
@@ -53,25 +53,28 @@ Net.H.State(:,1)=1;
 
 %% ---------- Начальные move ------------------
 
-Net.H.Move = zeros(size(Net.H.State));
-Net.V.Move = zeros(size(Net.V.State));
+Net.H.Move = zeros(size(Net.H.A));
+Net.V.Move = zeros(size(Net.V.A));
 
 Net.H.Move(:,1)=1;
 
+%% ---------- Начальные направления ------------------
+
+Net.H.Dir = zeros(size(Net.H.A));
+Net.V.Dir = zeros(size(Net.V.A));
+
+Net.H.Dir(:,1)=1;
+
 %% ---------- Начальные режимы ----------------
 
-Net.H.Regime = zeros(size(Net.H.State));
-Net.V.Regime = zeros(size(Net.V.State));
+Net.H.Regime = zeros(size(Net.H.A));
+Net.V.Regime = zeros(size(Net.V.A));
 
 Net.H.Regime(:,1) = 3;
 
 %% ---------- Первый расчет ------------------
 
-Net = solvePressureFlow(Net);
-
-Net = calcRegime(Net);
-
-Net = calcCanMove(Net);
+Net = updatePressureFlow(Net);
 
 Net = calcTimeStep(Net);
 
@@ -108,14 +111,10 @@ while true
 
     Net = calcState(Net);
 
-    Net = calcRegime(Net);
-    
-    Net = solvePressureFlow(Net);
-
-    Net = calcCanMove(Net);
+    Net = updatePressureFlow(Net);
 
     Net = calcTimeStep(Net);
 
-    drawNetwork(Net);
+    drawNetwork(Net,true);
 
 end
