@@ -11,6 +11,15 @@ function Net = calcTimeStep(Net)
     tminV = calcTimeStepEval(Net.V, Net);
     
     Net.dt = min(tminH, tminV);
+
+    % Если dt = Inf
+    if isinf(Net.dt)
+        hasMovingH = any(Net.H.Move(:) == 1);
+        hasMovingV = any(Net.V.Move(:) == 1);
+        if ~hasMovingH && ~hasMovingV
+            warning('Подвижных капилляров нет. Все заблокированы или давления не хватает.');
+        end
+    end
 end
 
 
