@@ -52,16 +52,17 @@ function [WaterConnectedH, WaterConnectedV] = calcWaterConnectivity(Net)
 
     % На нижней границе находятся последние вертикальные
     % капилляры каждого столбца.
+    if Net.VerticalBC
+        i = Net.V.Ny;
     
-    i = Net.V.Ny;
-    
-    for j = 1:Net.V.Nx
-        if Net.V.Sat(i,j) == 0
-            WaterConnectedV(i,j) = true;
-            tail = tail + 1;
-            queueType(tail) = 2;
-            queueI(tail) = i;
-            queueJ(tail) = j;
+        for j = 1:Net.V.Nx
+            if Net.V.Sat(i,j) == 0
+                WaterConnectedV(i,j) = true;
+                tail = tail + 1;
+                queueType(tail) = 2;
+                queueI(tail) = i;
+                queueJ(tail) = j;
+            end
         end
     end
     
