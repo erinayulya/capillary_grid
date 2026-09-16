@@ -4,8 +4,7 @@ if nargin < 2
     move = false;
 end
 
-figure(1)
-clf
+figure
 hold on
 axis equal
 
@@ -44,7 +43,7 @@ for i = 1:Net.H.Ny
 
             case 1
 
-                if j == 1 || Net.H.Q(i,j) >= 0
+                if Net.H.Dir(i,j) > 0
 
                     xm = x1 + Net.H.Sat(i,j);
 
@@ -98,6 +97,17 @@ for i = 1:Net.V.Ny
         y1 = Ny-i+1;
         y2 = Ny-i;
 
+        isClosedBoundary = ~Net.VerticalBC && ...
+            (i == 1 || i == Net.V.Ny);
+
+        if isClosedBoundary
+
+            plot([x x],[y1 y2],...
+                'Color',[0.6 0.6 0.6],...
+                'LineWidth',4);
+
+        else
+
         switch Net.V.State(i,j)
 
             case 0
@@ -114,7 +124,7 @@ for i = 1:Net.V.Ny
 
             case 1
 
-                if Net.V.Q(i,j) >= 0
+                if Net.V.Dir(i,j) > 0
 
                     ym = y1 - Net.V.Sat(i,j);
 
@@ -147,7 +157,9 @@ for i = 1:Net.V.Ny
 
         end
 
-        if move
+        end
+
+        if move && ~isClosedBoundary
             drawMoveMarker(x+0.12,(y1+y2)/2,Net.V.Move(i,j));
         end
 
@@ -197,7 +209,7 @@ if isfield(Net.H,'Sat_prev')
             x1 = j-1;
             x2 = j;
 
-            if j == 1 || Net.H.Q(i,j) >= 0
+            if Net.H.Dir_prev(i,j) > 0
                 xm = x1 + Net.H.Sat_prev(i,j);
             else
                 xm = x2 - Net.H.Sat_prev(i,j);
@@ -228,7 +240,7 @@ if isfield(Net.H,'Sat_prev')
             y1 = Ny-i+1;
             y2 = Ny-i;
 
-            if Net.V.Q(i,j) >= 0
+            if Net.V.Dir_prev(i,j) > 0
                 ym = y1 - Net.V.Sat_prev(i,j);
             else
                 ym = y2 + Net.V.Sat_prev(i,j);
@@ -272,6 +284,8 @@ end
 function drawMoveMarker(x,y,moveState)
 
 switch moveState
+    case 0
+        color = [0.8 0.8 0.8];
     case 1
         color = [0 0.6 0];
     case 2

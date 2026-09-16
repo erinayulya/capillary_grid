@@ -1,0 +1,120 @@
+СПРАВОЧНИК ФУНКЦИЙ
+Дата сверки: 16.09.2026. Пути рабочих файлов приведены ниже.
+Локальные функции перечислены рядом с основной. Снимок analysis/source_snapshot
+не является источником описания текущей модели.
+
+main.m — скрипт, не функция.
+  Задаёт параметры по умолчанию, размеры, Sat/State/Move/Dir/Regime.
+  Выполняет первый расчёт и пошаговый цикл до достижения State=2 справа
+  либо нажатия «Стоп». Сохраняет поля *_prev для отрисовки.
+  Побочные эффекты: clear all, изменения workspace, окна и диалоги.
+  Последовательность вызовов описана в architecture.txt.
+
+run.m: run()
+  Создаёт окно параметров; результат возвращаемым аргументом не выдаёт.
+  Удаляет Net из base workspace при открытии, передаёт новый Net через
+  assignin, запускает main через evalin. Требует графической среды MATLAB.
+  changeAreaType(~,~): переключает панели способов задания площадей.
+  [Ah,Av,ok] = getGeometry(): читает геометрию из элементов интерфейса,
+    проверяет допустимость значений и согласованность размеров матриц.
+  previewNetwork(~,~): проверяет размеры и вызывает plotNetwork.
+  startMain(~,~): проверяет параметры, собирает Net, запускает main.
+  Ограничения текущей передачи Net указаны в architecture.txt.
+
+solver/solvePressureFlow.m: Net = solvePressureFlow(Net)
+  Вход: геометрия, физические параметры, граничные условия и поля состояний.
+  При наличии P и Q подходящих размеров использует их как начальное приближение.
+  Решает совместную нелинейную систему давлений и расходов методом Ньютона
+  с масштабированием и уменьшением шага.
+  Выход: Net с P, H.Q, V.Q, NewtonIterations.
+  Вызывает pressureFlowScaling и calcResidualJacobian.
+  Некорректный шаг/неудачный поиск шага: error; итоговая невязка выше допуска:
+  warning, без отдельного признака отказа в возвращаемом Net.
+
+solver/calcResidualJacobian.m:
+  [F,J] = calcResidualJacobian(Net,X,idxP,idxQH,idxQV)
+  Собирает балансы расходов в узлах и уравнения всех капилляров.
+  X содержит давления, затем горизонтальные и вертикальные расходы.
+  Выход: F — столбец невязок; J — разреженный якобиан.
+  Вызывает capillaryEquation; для закрытых вертикальных границ задаёт Q=0.
+  Net не изменяет. Компоненты F имеют разные физические единицы.
+
+solver/pressureFlowScaling.m:
+  [xScale,fScale] = pressureFlowScaling(Net,idxP,idxQH,idxQV)
+  Возвращает масштабы неизвестных и уравнений: 1e3 Па и 1e-11 м3/с.
+  Учитывает State, Move, Regime и закрытые вертикальные границы.
+  Net не изменяет.
+
+model/capillaryEquation.m:
+  [f,dfdp,dfdq] = capillaryEquation(Net,dp,q,A,S,state,regime,move)
+  Уравнение одного капилляра и производные по перепаду и расходу.
+  Для одной фазы — закон Пуазейля; для удержанного/защемлённого мениска — q=0;
+  для подвижного — плато, полная модель или вязкое приближение по regime.
+  Для мениска вызывающая функция ориентирует dp и q с помощью Dir.
+  Net не изменяет. Подвижный мениск требует корректного regime=1/2/3.
+  realCubeRoot(x): вещественный кубический корень, сохраняющий знак.
+
+model/calcCanMove.m: Net = calcCanMove(Net)
+  Читает State, прежний Move, Dir, Sat, P, геометрию и параметры Pc.
+  Вызывает calcWaterConnectivity. Обновляет H.Move и V.Move.
+  Move=2 сохраняется для существующего мениска; Move=3 проверяется повторно.
+  Для перехода к Move=1 нужны разрешённая связность/граничный случай и dP>Pc.
+
+model/calcWaterConnectivity.m:
+  [WaterConnectedH,WaterConnectedV] = calcWaterConnectivity(Net)
+  Обход в ширину по капиллярам с Sat==0 от правой границы и, при
+  VerticalBC=true, нижней. Возвращает логические матрицы размеров H.A и V.A.
+  Закрытые верхние/нижние граничные капилляры исключаются из передачи метки.
+  Net не изменяет.
+
+model/calcRegime.m: Net = calcRegime(Net)
+  По ориентированному перепаду давления, насыщенности и параметрам модели
+  выбирает H.Regime/V.Regime только для State=1 и Move=1.
+  Остальные значения Regime функция не сбрасывает.
+  calcOneRegime(r,Sat,dpStar,Net): возвращает 1, 2 или 3 через сравнение
+  Pi с PiCrit/Net.bound и Net.bound*PiCrit; при Aeff<=0 возвращает 1.
+
+model/calcTimeStep.m: Net = calcTimeStep(Net)
+  Вычисляет Net.dt как минимальное время до заполнения подвижного капилляра.
+  calcTimeStepEval(Cap,Net): минимизирует (1-S)*L/(abs(Q)/A)
+  среди State=1, Move=1, S<1-1e-12; при отсутствии кандидата возвращает Inf.
+  Предупреждение при Inf выдаётся, если вообще нет Move=1.
+
+model/calcSaturation.m: Net = calcSaturation(Net)
+  Обновляет H.Sat/V.Sat по прежним Q и Net.dt.
+  calcSaturationEval(Net,dt,L): здесь Net означает только ветвь H либо V;
+  для State=1, Move=1 вычисляет min(1,Sat+abs(Q)/A*dt/L).
+
+model/calcState.m: Net = calcState(Net)
+  Для State=1 и Sat>=1-1e-12 устанавливает State=2, Sat=1,
+  Move=Dir=Regime=0; обрабатывает узел выхода прежнего мениска.
+  processNode(Net,row,col,from): создаёт мениски в водяных соседях,
+  если расход направлен от узла; задаёт State=1, Sat=0, Move=3,
+  Dir=+1/-1, Regime=0. from обозначает сторону прихода L/R/U/D.
+
+visualization/drawNetwork.m: drawNetwork(Net,move)
+  Рисует состояние сети в новом окне figure при каждом вызове.
+  При Net.VerticalBC=false верхние и нижние вертикальные капилляры рисует
+  серыми без маркеров Move.
+  move необязателен (false): при true показывает маркеры Move: 0 —
+  светло-серый, 1 — зелёный, 2 — красный, 3 — серый.
+  Использует геометрию, State, Sat, Dir, Move; при наличии H.Sat_prev
+  читает согласованный комплект H/V.Sat_prev, State_prev, Dir_prev.
+  Net не изменяет; возвращаемого значения нет.
+  drawMoveMarker(x,y,moveState): рисует маркер состояния движения.
+
+visualization/plotNetwork.m: plotNetwork(N_cols,N_rows)
+  Рисует схему сети по числу внутренних столбцов и рядов.
+  Проверяет положительные целые скалярные размеры; создаёт отдельное окно.
+  Не рассчитывает давления и фазы, не получает и не изменяет Net.
+
+ДИАГНОСТИКА analysis/
+  benchmark_scaling, benchmark_detail, diagnose_move: исторические замеры
+  и диагностика с подключением source_snapshot; условия — в analysis/README.md.
+  check_first_steps, reproduce_first_steps: сценарии проверки первых шагов.
+  Эти сценарии не составляют автоматический набор регрессионных тестов.
+
+setupProject.m: setupProject()
+  Подключает корень, model, solver, visualization по расположению файла.
+  Вызывается main и run, а также сценариями проверки первых шагов.
+  Не подключает analysis и source_snapshot, не вызывает savepath.

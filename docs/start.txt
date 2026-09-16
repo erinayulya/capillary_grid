@@ -1,0 +1,33 @@
+ЗАПУСК ПРОЕКТА
+
+В MATLAB перейти в корень capillary_grid.
+
+  run                 окно параметров (сохраняется прежнее имя)
+  main                интерактивный расчёт с текущей логикой main
+
+Обе точки запуска сами вызывают setupProject. Для отдельных функций:
+
+  setupProject
+  % Затем solvePressureFlow(Net), drawNetwork(Net) и т. д.
+
+При работе из другой папки сначала подключить корень:
+  addpath('C:/Users/erina/Documents/MATLAB/Disser/capillary_grid')
+  setupProject
+
+setupProject меняет path только текущего сеанса и не сохраняет его глобально.
+Не использовать addpath(genpath(...)): в проекте есть старые одноимённые функции.
+
+Исторические исследования:
+  addpath('analysis')
+  benchmark_scaling
+Сценарии benchmark_scaling, benchmark_detail, diagnose_move подключают старый
+source_snapshot. Их подробности и ограничения описаны в analysis/README.md.
+check_first_steps и reproduce_first_steps подключают текущие рабочие папки.
+
+Известные ограничения запуска перечислены в architecture.txt, включая
+очистку переданного Net в main. Перенос папок эти ограничения не исправляет.
+
+Заготовка навыка: skills/capillary-grid/SKILL.md.
+Она хранится вместе с проектом, глобально не установлена. Её можно дать
+помощнику явным указанием прочитать этот файл. Навык ссылается на актуальные
+справочники проекта; копии документации внутри навыка не дублируются.

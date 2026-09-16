@@ -1,4 +1,5 @@
 clear all
+setupProject;
 %% ---------------- Параметры ----------------
 if ~exist('Net', 'var')
 
@@ -76,12 +77,6 @@ Net.H.Regime(:,1) = 3;
 
 Net = solvePressureFlow(Net);
 
-Net = calcCanMove(Net);
-
-Net = calcRegime(Net);
-
-Net = solvePressureFlow(Net);
-
 Net = calcTimeStep(Net);
 
 drawNetwork(Net);
@@ -118,8 +113,6 @@ while true
     Net = calcSaturation(Net);
 
     Net = calcState(Net);
-
-    Net = solvePressureFlow(Net);
 
     Net = calcCanMove(Net);
 
