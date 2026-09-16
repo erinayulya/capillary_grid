@@ -278,6 +278,41 @@ xlabel(targetAxes,'x')
 ylabel(targetAxes,'y')
 title(targetAxes,'Распространение второй фазы')
 
+% Явные образцы включают все коды Move, даже отсутствующие на текущем шаге.
+legendHandles = gobjects(0);
+legendLabels = {};
+
+legendHandles(end+1) = plot(targetAxes,NaN,NaN,'ro', ...
+    'LineStyle','none','MarkerFaceColor','r','MarkerSize',8);
+legendLabels{end+1} = sprintf('Мениск');
+if isfield(Net.H,'Sat_prev')
+    legendHandles(end+1) = plot(targetAxes,NaN,NaN,'o', ...
+        'LineStyle','none','Color',[.5 .5 .5], ...
+        'MarkerFaceColor',[.5 .5 .5],'MarkerSize',6);
+    legendLabels{end+1} = sprintf('Предыдущее положение\nмениска');
+end
+
+% Пустая строка между блоками
+legendHandles(end+1) = plot(targetAxes,NaN,NaN, ...
+    'LineStyle','none','Marker','none');
+legendLabels{end+1} = ' ';
+
+if move
+    colors = [.8 .8 .8; 0 .6 0; 1 0 0; .5 .5 .5];
+    labels = {'Нет мениска', 'Мениск подвижен', 'Мениск заблокирован', ...
+        sprintf('Мениск временно неподвижен\n(Pc >= dP)')};
+    for markerIndex = 1:4
+        legendHandles(end+1) = plot(targetAxes,NaN,NaN,'o', ...
+            'LineStyle','none','MarkerSize',5, ...
+            'MarkerEdgeColor',colors(markerIndex,:), ...
+            'MarkerFaceColor',colors(markerIndex,:));
+        legendLabels{end+1} = labels{markerIndex};
+    end
+end
+
+legend(targetAxes,legendHandles,legendLabels,'Location','eastoutside', ...
+    'Interpreter','none','FontSize',8,'AutoUpdate','off','Box','off');
+
 drawnow
 
 end
