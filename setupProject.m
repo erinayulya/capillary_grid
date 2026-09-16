@@ -3,5 +3,5 @@ function setupProject()
 % Paths are relative to this file, independent of the current directory.
 root = fileparts(mfilename('fullpath'));
 addpath(root, fullfile(root,'model'), fullfile(root,'solver'), ...
-    fullfile(root,'visualization'));
+    fullfile(root,'visualization'), fullfile(root,'reporting'));
 end

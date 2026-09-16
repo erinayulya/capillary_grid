@@ -1,10 +1,11 @@
-clear all
 setupProject;
+%% -------- Режим расчёта --------------------
+recordResults = false; % true: посчитать без диалогов и записать PDF и MAT
 %% ---------------- Параметры ----------------
 if ~exist('Net', 'var')
 
     Net.H.P0 = 1500;        % Давление на левой границе, Па
-    Net.VerticalBC = false; % Верхняя и нижняя границы проницаемы
+    Net.VerticalBC = false; % Верхняя и нижняя границы закрыты
     Net.V.P0 = 200;         % Па
     
     Net.mu1 = 1e-3;        % Вязкость воды, Па*с
@@ -28,6 +29,10 @@ if ~exist('Net', 'var')
         1 1 1;
         1 1 1;
         1 1 1];
+end
+
+if ~isfield(Net.V,'P0')
+    Net.V.P0 = 200; % Давление сверху при открытых границах, Па
 end
 
 Net.kdyn = 2;
@@ -74,54 +79,4 @@ Net.V.Regime = zeros(size(Net.V.A));
 Net.H.Regime(:,1) = 3;
 
 %% ---------- Первый расчет ------------------
-
-Net = solvePressureFlow(Net);
-
-Net = calcTimeStep(Net);
-
-drawNetwork(Net);
-
-%% ---------- Основной цикл ------------------
-
-while true
-
-    if any(Net.H.State(:,end)==2)
-
-        disp('Вторая фаза достигла правой границы.')
-        break
-
-    end    
-
-    answer = questdlg(...
-        sprintf('Следующий шаг\n dt = %.5e c',Net.dt),...
-        'Расчет',...
-        'Продолжить','Стоп','Продолжить');
-
-    if strcmp(answer,'Стоп')
-        break
-    end
-
-    % Значения с предыдущего шага для графиков
-    Net.H.Sat_prev = Net.H.Sat;
-    Net.V.Sat_prev = Net.V.Sat;
-    Net.H.State_prev = Net.H.State;
-    Net.V.State_prev = Net.V.State;
-    Net.H.Dir_prev = Net.H.Dir;
-    Net.V.Dir_prev = Net.V.Dir;
-
-    % Основной расчет
-    Net = calcSaturation(Net);
-
-    Net = calcState(Net);
-
-    Net = calcCanMove(Net);
-
-    Net = calcRegime(Net);
-
-    Net = solvePressureFlow(Net);
-
-    Net = calcTimeStep(Net);
-
-    drawNetwork(Net,true);
-
-end
+[Net, simulationResult] = simulateNetwork(Net, recordResults);

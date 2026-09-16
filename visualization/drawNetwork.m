@@ -1,12 +1,14 @@
-function drawNetwork(Net,move)
+function drawNetwork(Net,move,targetAxes)
 
 if nargin < 2
     move = false;
 end
 
-figure
-hold on
-axis equal
+if nargin < 3
+    targetAxes = axes('Parent',figure);
+end
+hold(targetAxes,'on')
+axis(targetAxes,'equal')
 
 Nx = Net.H.Nx;
 Ny = Net.H.Ny;
@@ -31,13 +33,13 @@ for i = 1:Net.H.Ny
 
             case 0
 
-                plot([x1 x2],[y y],...
+                plot(targetAxes,[x1 x2],[y y],...
                     'Color',c0,...
                     'LineWidth',4);
 
             case 2
 
-                plot([x1 x2],[y y],...
+                plot(targetAxes,[x1 x2],[y y],...
                     'Color',c2,...
                     'LineWidth',4);
 
@@ -47,11 +49,11 @@ for i = 1:Net.H.Ny
 
                     xm = x1 + Net.H.Sat(i,j);
 
-                    plot([x1 xm],[y y],...
+                    plot(targetAxes,[x1 xm],[y y],...
                         'Color',c2,...
                         'LineWidth',4);
 
-                    plot([xm x2],[y y],...
+                    plot(targetAxes,[xm x2],[y y],...
                         'Color',c0,...
                         'LineWidth',4);
 
@@ -59,17 +61,17 @@ for i = 1:Net.H.Ny
 
                     xm = x2 - Net.H.Sat(i,j);
 
-                    plot([x1 xm],[y y],...
+                    plot(targetAxes,[x1 xm],[y y],...
                         'Color',c0,...
                         'LineWidth',4);
 
-                    plot([xm x2],[y y],...
+                    plot(targetAxes,[xm x2],[y y],...
                         'Color',c2,...
                         'LineWidth',4);
 
                 end
 
-                plot(xm,y,...
+                plot(targetAxes,xm,y,...
                     'ro',...
                     'MarkerFaceColor','r',...
                     'MarkerSize',8);
@@ -77,7 +79,7 @@ for i = 1:Net.H.Ny
         end
 
         if move
-            drawMoveMarker((x1+x2)/2,y+0.12,Net.H.Move(i,j));
+            drawMoveMarker(targetAxes,(x1+x2)/2,y+0.12,Net.H.Move(i,j));
         end
 
     end
@@ -102,7 +104,7 @@ for i = 1:Net.V.Ny
 
         if isClosedBoundary
 
-            plot([x x],[y1 y2],...
+            plot(targetAxes,[x x],[y1 y2],...
                 'Color',[0.6 0.6 0.6],...
                 'LineWidth',4);
 
@@ -112,13 +114,13 @@ for i = 1:Net.V.Ny
 
             case 0
 
-                plot([x x],[y1 y2],...
+                plot(targetAxes,[x x],[y1 y2],...
                     'Color',c0,...
                     'LineWidth',4);
 
             case 2
 
-                plot([x x],[y1 y2],...
+                plot(targetAxes,[x x],[y1 y2],...
                     'Color',c2,...
                     'LineWidth',4);
 
@@ -128,11 +130,11 @@ for i = 1:Net.V.Ny
 
                     ym = y1 - Net.V.Sat(i,j);
 
-                    plot([x x],[y1 ym],...
+                    plot(targetAxes,[x x],[y1 ym],...
                         'Color',c2,...
                         'LineWidth',4);
 
-                    plot([x x],[ym y2],...
+                    plot(targetAxes,[x x],[ym y2],...
                         'Color',c0,...
                         'LineWidth',4);
 
@@ -140,17 +142,17 @@ for i = 1:Net.V.Ny
 
                     ym = y2 + Net.V.Sat(i,j);
 
-                    plot([x x],[y1 ym],...
+                    plot(targetAxes,[x x],[y1 ym],...
                         'Color',c0,...
                         'LineWidth',4);
 
-                    plot([x x],[ym y2],...
+                    plot(targetAxes,[x x],[ym y2],...
                         'Color',c2,...
                         'LineWidth',4);
 
                 end
 
-                plot(x,ym,...
+                plot(targetAxes,x,ym,...
                     'ro',...
                     'MarkerFaceColor','r',...
                     'MarkerSize',8);
@@ -160,7 +162,7 @@ for i = 1:Net.V.Ny
         end
 
         if move && ~isClosedBoundary
-            drawMoveMarker(x+0.12,(y1+y2)/2,Net.V.Move(i,j));
+            drawMoveMarker(targetAxes,x+0.12,(y1+y2)/2,Net.V.Move(i,j));
         end
 
     end
@@ -178,7 +180,7 @@ for i = 1:Ny
 
     for j = 1:Nx-1
 
-        plot(j,y,...
+        plot(targetAxes,j,y,...
             'ko',...
             'MarkerFaceColor','k',...
             'MarkerSize',6);
@@ -215,7 +217,7 @@ if isfield(Net.H,'Sat_prev')
                 xm = x2 - Net.H.Sat_prev(i,j);
             end
 
-            plot(xm,y,...
+            plot(targetAxes,xm,y,...
                 'o',...
                 'Color',[0.5 0.5 0.5],...
                 'MarkerFaceColor',[0.5 0.5 0.5],...
@@ -246,7 +248,7 @@ if isfield(Net.H,'Sat_prev')
                 ym = y2 + Net.V.Sat_prev(i,j);
             end
 
-            plot(x,ym,...
+            plot(targetAxes,x,ym,...
                 'o',...
                 'Color',[0.5 0.5 0.5],...
                 'MarkerFaceColor',[0.5 0.5 0.5],...
@@ -259,29 +261,29 @@ if isfield(Net.H,'Sat_prev')
 end
 
 
-axis equal
+axis(targetAxes,'equal')
 
-xl = xlim;
-yl = ylim;
+xl = xlim(targetAxes);
+yl = ylim(targetAxes);
 
 dx = diff(xl);
 dy = diff(yl);
 
-xlim(xl + [-0.05 0.05]*dx)
-ylim(yl + [-0.05 0.05]*dy)
+xlim(targetAxes,xl + [-0.05 0.05]*dx)
+ylim(targetAxes,yl + [-0.05 0.05]*dy)
 
-box on
+box(targetAxes,'on')
 
-xlabel('x')
-ylabel('y')
-title('Распространение второй фазы')
+xlabel(targetAxes,'x')
+ylabel(targetAxes,'y')
+title(targetAxes,'Распространение второй фазы')
 
 drawnow
 
 end
 
 
-function drawMoveMarker(x,y,moveState)
+function drawMoveMarker(targetAxes,x,y,moveState)
 
 switch moveState
     case 0
@@ -296,7 +298,7 @@ switch moveState
         return
 end
 
-plot(x,y,...
+plot(targetAxes,x,y,...
     'o',...
     'MarkerEdgeColor',color,...
     'MarkerFaceColor',color,...
