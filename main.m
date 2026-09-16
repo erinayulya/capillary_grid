@@ -1,5 +1,5 @@
 setupProject;
-%% -------- Режим расчёта --------------------
+%% ---------------- Режим расчёта ------------
 recordResults = false; % true: посчитать без диалогов и записать PDF и MAT
 % Кнопка интерфейса задаёт режим только для текущего запуска.
 if exist('runRecordResults','var')
@@ -7,6 +7,10 @@ if exist('runRecordResults','var')
     clear runRecordResults
 end
 %% ---------------- Параметры ----------------
+
+Net.kdyn = 2;  % коэффициент в формуле динамического угла смачивания
+Net.bound = 2; % границы режимов: Pi < PiCrit/Net.bound (плато) или Pi > PiCrit*Net.bound (вязкий)
+
 if ~exist('Net', 'var')
 
     Net.H.P0 = 1500;        % Давление на левой границе, Па
@@ -39,9 +43,6 @@ end
 if ~isfield(Net.V,'P0')
     Net.V.P0 = 200; % Давление сверху при открытых границах, Па
 end
-
-Net.kdyn = 2;
-Net.bound = 2;
 
 %% ---------- Размер сети --------------------
 Net.H.Nx = size(Net.H.A, 2);
