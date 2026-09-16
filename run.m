@@ -9,6 +9,8 @@ evalin('base', 'clearvars Net');
 % ============================================================
 fig = uifigure( ...
     'Name', 'Параметры расчёта', ...
+    'Visible', 'off', ...
+    'AutoResizeChildren', 'off', ...
     'Position', [400 50 700 850]);
 
 
@@ -288,6 +290,39 @@ uibutton(fig, ...
     'FontSize', 14, ...
     'FontWeight', 'bold', ...
     'ButtonPushedFcn', @(~,~) startMain(true));
+
+% Вписываем исходную компоновку 700x850 в экран с запасом под рамку окна.
+rootUnits = get(groot,'Units');
+set(groot,'Units','pixels');
+monitors = get(groot,'MonitorPositions');
+pointer = get(groot,'PointerLocation');
+set(groot,'Units',rootUnits);
+monitorIndex = find(pointer(1)>=monitors(:,1) & ...
+    pointer(1)<monitors(:,1)+monitors(:,3) & ...
+    pointer(2)>=monitors(:,2) & ...
+    pointer(2)<monitors(:,2)+monitors(:,4),1);
+if isempty(monitorIndex), monitorIndex=1; end
+screen = monitors(monitorIndex,:);
+windowScale = min([0.9, (screen(3)-100)/700, (screen(4)-160)/850]);
+controls = findall(fig,'-property','Position');
+controls(controls==fig) = [];
+for k=1:numel(controls)
+    if isprop(controls(k),'AutoResizeChildren')
+        controls(k).AutoResizeChildren = 'off';
+    end
+end
+for k=1:numel(controls)
+    controls(k).Position = controls(k).Position*windowScale;
+    if isprop(controls(k),'FontSize')
+        controls(k).FontSize = controls(k).FontSize*windowScale;
+    end
+end
+windowSize = [700 850]*windowScale;
+fig.Position = [screen(1:2)+(screen(3:4)-windowSize)/2, windowSize];
+fig.AutoResizeChildren = 'on';
+RandomPanel.AutoResizeChildren = 'on';
+MatrixPanel.AutoResizeChildren = 'on';
+fig.Visible = 'on';
 
 
 %% ============================================================
