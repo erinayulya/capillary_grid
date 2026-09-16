@@ -121,7 +121,7 @@ uilabel(fig, ...
 
 H_P0 = uieditfield(fig, 'numeric', ...
     'Position', [480 445 170 30], ...
-    'Value', 100, ...
+    'Value', 1500, ...
     'FontSize', 15);
 
 
@@ -158,58 +158,10 @@ uilabel(fig, ...
 
 AreaType = uidropdown(fig, ...
     'Position', [480 300 170 30], ...
-    'Items', {'Одинакова', 'Случайная', 'Матрица значений'}, ...
-    'Value', 'Одинакова', ...
+    'Items', {'Матрица площадей', 'Случайная'}, ...
+    'Value', 'Матрица площадей', ...
     'FontSize', 15, ...
     'ValueChangedFcn', @changeAreaType);
-
-
-%% ============================================================
-% Одинаковая площадь
-% ============================================================
-
-SamePanel = uipanel(fig, ...
-    'Position', [30 90 640 190], ...
-    'BorderType', 'none');
-
-
-% Площадь капилляра
-
-uilabel(SamePanel, ...
-    'Position', [10 135 400 30], ...
-    'Text', 'Площадь капилляра A, м²', ...
-    'FontSize', 15);
-
-SameA = uieditfield(SamePanel, 'numeric', ...
-    'Position', [450 135 170 30], ...
-    'Value', 1e-6, ...
-    'FontSize', 15);
-
-
-% Число горизонтальных рядов
-
-uilabel(SamePanel, ...
-    'Position', [10 85 400 30], ...
-    'Text', 'Число горизонтальных рядов капилляров', ...
-    'FontSize', 15);
-
-SameN_rows = uieditfield(SamePanel, 'numeric', ...
-    'Position', [450 85 170 30], ...
-    'Value', 3, ...
-    'FontSize', 15);
-
-
-% Число вертикальных рядов
-
-uilabel(SamePanel, ...
-    'Position', [10 35 400 30], ...
-    'Text', 'Число вертикальных рядов капилляров', ...
-    'FontSize', 15);
-
-SameN_cols = uieditfield(SamePanel, 'numeric', ...
-    'Position', [450 35 170 30], ...
-    'Value', 3, ...
-    'FontSize', 15);
 
 
 %% ============================================================
@@ -273,7 +225,7 @@ RandomN_cols = uieditfield(RandomPanel, 'numeric', ...
 MatrixPanel = uipanel(fig, ...
     'Position', [20 50 660 230], ...
     'BorderType', 'none', ...
-    'Visible', 'off');
+    'Visible', 'on');
 
 
 % Горизонтальные капилляры
@@ -316,19 +268,26 @@ V_A = uitextarea(MatrixPanel, ...
 % ============================================================
 
 uibutton(fig, ...
-    'Position', [80 10 250 45], ...
+    'Position', [20 10 120 45], ...
     'Text', 'Нарисовать', ...
-    'FontSize', 16, ...
+    'FontSize', 14, ...
     'FontWeight', 'bold', ...
     'ButtonPushedFcn', @previewNetwork);
 
 
 uibutton(fig, ...
-    'Position', [370 10 250 45], ...
-    'Text', 'Задать и запустить', ...
-    'FontSize', 16, ...
+    'Position', [150 10 200 45], ...
+    'Text', 'Запустить по шагам', ...
+    'FontSize', 14, ...
     'FontWeight', 'bold', ...
-    'ButtonPushedFcn', @startMain);
+    'ButtonPushedFcn', @(~,~) startMain(false));
+
+uibutton(fig, ...
+    'Position', [360 10 320 45], ...
+    'Text', 'Запустить и сохранить результаты', ...
+    'FontSize', 14, ...
+    'FontWeight', 'bold', ...
+    'ButtonPushedFcn', @(~,~) startMain(true));
 
 
 %% ============================================================
@@ -339,21 +298,13 @@ function changeAreaType(~, ~)
 
     switch AreaType.Value
 
-        case 'Одинакова'
-
-            SamePanel.Visible = 'on';
-            RandomPanel.Visible = 'off';
-            MatrixPanel.Visible = 'off';
-
         case 'Случайная'
 
-            SamePanel.Visible = 'off';
             RandomPanel.Visible = 'on';
             MatrixPanel.Visible = 'off';
 
-        case 'Матрица значений'
+        case 'Матрица площадей'
 
-            SamePanel.Visible = 'off';
             RandomPanel.Visible = 'off';
             MatrixPanel.Visible = 'on';
 
@@ -371,76 +322,6 @@ function [Ah, Av, ok] = getGeometry()
     ok = false;
 
     switch AreaType.Value
-
-        % ====================================================
-        % Одинаковая площадь
-        % ====================================================
-
-        case 'Одинакова'
-
-            A = SameA.Value;
-
-            N_rows = SameN_rows.Value;
-            N_cols = SameN_cols.Value;
-
-
-            % Проверка площади
-
-            if ~isfinite(A) || A <= 0
-
-                uialert(fig, ...
-                    'Площадь капилляра должна быть положительным числом.', ...
-                    'Ошибка');
-                return;
-
-            end
-
-
-            % Проверка N_rows
-
-            if ~isfinite(N_rows) || ...
-                    N_rows < 1 || ...
-                    N_rows ~= round(N_rows)
-
-                uialert(fig, ...
-                    'Число горизонтальных рядов должно быть положительным целым числом.', ...
-                    'Ошибка');
-                return;
-
-            end
-
-
-            % Проверка N_cols
-
-            if ~isfinite(N_cols) || ...
-                    N_cols < 1 || ...
-                    N_cols ~= round(N_cols)
-
-                uialert(fig, ...
-                    'Число вертикальных рядов должно быть положительным целым числом.', ...
-                    'Ошибка');
-                return;
-
-            end
-
-
-            N_rows = round(N_rows);
-            N_cols = round(N_cols);
-
-
-            % Геометрия сети:
-            %
-            % Ah = N_rows × (N_cols + 1)
-            % Av = (N_rows + 1) × N_cols
-
-            Ah = A * ones(N_rows, N_cols + 1);
-
-            Av = A * ones(N_rows + 1, N_cols);
-
-
-        % ====================================================
-        % Случайная площадь
-        % ====================================================
 
         case 'Случайная'
 
@@ -510,10 +391,10 @@ function [Ah, Av, ok] = getGeometry()
 
 
         % ====================================================
-        % Матрица значений
+        % Матрица площадей
         % ====================================================
 
-        case 'Матрица значений'
+        case 'Матрица площадей'
 
             % ------------------------------------------------
             % Чтение Ah
@@ -670,19 +551,13 @@ function previewNetwork(~, ~)
 
     switch AreaType.Value
 
-        case 'Одинакова'
-
-            N_rows = SameN_rows.Value;
-            N_cols = SameN_cols.Value;
-
-
         case 'Случайная'
 
             N_rows = RandomN_rows.Value;
             N_cols = RandomN_cols.Value;
 
 
-        case 'Матрица значений'
+        case 'Матрица площадей'
 
             [Ah, Av, ok] = getGeometry();
 
@@ -739,7 +614,7 @@ end
 % Создание Net и запуск main
 % ============================================================
 
-function startMain(~, ~)
+function startMain(saveResults)
 
     %% Проверка параметров модели
 
@@ -837,6 +712,7 @@ function startMain(~, ~)
     %% Передача Net в основной workspace
 
     assignin('base', 'Net', Net);
+    assignin('base', 'runRecordResults', saveResults);
 
 
     %% Запуск main

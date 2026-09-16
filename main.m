@@ -1,6 +1,11 @@
 setupProject;
 %% -------- Режим расчёта --------------------
 recordResults = false; % true: посчитать без диалогов и записать PDF и MAT
+% Кнопка интерфейса задаёт режим только для текущего запуска.
+if exist('runRecordResults','var')
+    recordResults = runRecordResults;
+    clear runRecordResults
+end
 %% ---------------- Параметры ----------------
 if ~exist('Net', 'var')
 

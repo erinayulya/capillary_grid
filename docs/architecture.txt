@@ -62,6 +62,8 @@ setupProject подключает корень, model, solver, visualization, re
 
 run -> plotNetwork (предпросмотр)
 run -> main (через assignin/evalin и базовое рабочее пространство)
+Кнопки run передают одноразовый runRecordResults: пошаговый режим false,
+сохранение PDF/MAT true. main применяет и удаляет этот переключатель.
 main -> simulateNetwork -> solvePressureFlow -> pressureFlowScaling
                          -> calcResidualJacobian -> capillaryEquation
 simulateNetwork -> calcCanMove -> calcWaterConnectivity

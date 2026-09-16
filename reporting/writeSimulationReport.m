@@ -106,8 +106,11 @@ label(ax,x,y,titleText,11,true);
 cellWidth = width/(cols+1);
 rowHeight = 20;
 top = y+17;
+headerColor = [.9 .94 .97];
 rectangle(ax,'Position',[x top width rowHeight], ...
-    'FaceColor',[.9 .94 .97],'EdgeColor','none');
+    'FaceColor',headerColor,'EdgeColor','none');
+rectangle(ax,'Position',[x top cellWidth (rows+1)*rowHeight], ...
+    'FaceColor',headerColor,'EdgeColor','none');
 for r=0:rows+1
     line(ax,[x x+width],[top+r*rowHeight top+r*rowHeight],'Color',[.75 .8 .85]);
 end
