@@ -1,5 +1,5 @@
 АРХИТЕКТУРА ПРОЕКТА
-Дата анализа: 16.09.2026. Описаны текущие рабочие .m-файлы проекта.
+Дата анализа: 18.09.2026. Описаны текущие рабочие .m-файлы проекта.
 Структура папок реализована 16.09.2026. Формулы перенесённых функций сохранены.
 
 1. ТЕКУЩЕЕ УСТРОЙСТВО
@@ -7,10 +7,10 @@
 Рабочие файлы разделены по ответственности:
 - run.m: графический ввод параметров, проверка ввода, запуск.
 - main.m: параметры, переключатель recordResults, инициализация состояния.
-- model/: физическая модель, обновление состояния и цикл simulateNetwork.
+- model/: физическая модель и обновление состояния.
 - solver/: 3 файла численного решения.
 - visualization/: drawNetwork.m и plotNetwork.m для отрисовки.
-- reporting/: создание PDF по сохранённым результатам.
+- reporting/: цикл simulateNetwork, запись результатов MAT и создание PDF.
 - results/: отдельная папка каждого запуска с PDF и MAT.
 - setupProject.m: подключение рабочих папок.
 
@@ -25,7 +25,6 @@ capillary_grid/
   main.m                     точка запуска расчёта
   run.m                      текущая точка запуска интерфейса
   model/
-    simulateNetwork.m
     calcCanMove.m
     calcRegime.m
     calcSaturation.m
@@ -41,6 +40,7 @@ capillary_grid/
     drawNetwork.m
     plotNetwork.m
   reporting/
+    simulateNetwork.m
     writeSimulationReport.m
   results/                   сохранённые запуски (PDF и MAT)
   docs/

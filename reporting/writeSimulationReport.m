@@ -22,6 +22,15 @@ label(canvas,40,132,sprintf('Общее модельное время (сумм�
     result.totalTime),15,true);
 label(canvas,40,166,sprintf('Выполнено шагов: %d',result.steps),12,false);
 label(canvas,40,199,result.status,11,false);
+if isfield(result,'totalComputeTime')
+    computeText = sprintf('Общее время вычислений (включая шаг 0): %.6g с',result.totalComputeTime);
+    if isfield(result,'failedComputeTime') && result.failedComputeTime > 0
+        computeText = sprintf('%s; незавершённый расчёт: %.6g с',computeText,result.failedComputeTime);
+    end
+else
+    computeText = 'Общее время вычислений: не измерялось.';
+end
+label(canvas,40,226,computeText,11,true);
 if Net.VerticalBC, boundary = 'открыты'; else, boundary = 'закрыты'; end
 lines = {
     sprintf('Давление на левой границе, Net.H.P0: %.12g Па',Net.H.P0)
@@ -37,7 +46,7 @@ lines = {
     sprintf('Множитель границ режимов, Net.bound: %.12g',Net.bound)
     sprintf('Внутренние узлы: %d строк x %d столбцов',Net.H.Ny,Net.H.Nx-1)
     'Начальное состояние сохранено в parameters.mat; шаг 0 показан отдельно.'
-    'Время в отчёте - физическое время модели, а не длительность работы компьютера.'};
+    'Время вычислений не включает запись MAT, построение PDF, графики и диалоги.'};
 for k=1:numel(lines), label(canvas,40,255+29*(k-1),lines{k},11,false); end
 drawTable(canvas,Net.H.A,'Net.H.A - площади горизонтальных капилляров, м²', ...
     40,700,width-80,'%.6g');
@@ -57,6 +66,13 @@ for k = order
     label(canvas,40,72,sprintf('dt выполненного шага = %.12g с     t = %.12g с', ...
         snapshot.dtUsed,snapshot.elapsedTime),12,true);
     label(canvas,40,100,sprintf('Net.dt для следующего шага = %.12g с',Net.dt),10,false);
+    if isfield(snapshot,'stepComputeTime') && isfield(snapshot,'totalComputeTime')
+        computeText = sprintf('Вычисления шага: %.6g с; накопленное время вычислений: %.6g с', ...
+            snapshot.stepComputeTime,snapshot.totalComputeTime);
+    else
+        computeText = 'Время вычислений шага и накопленное: не измерялось.';
+    end
+    label(canvas,40,126,computeText,10,true);
     ax = axes(fig,'Units','normalized', ...
         'Position',[80/width (height-410)/height (width-160)/width 260/height]);
     drawNetwork(Net,snapshot.step>0,ax);
