@@ -16,6 +16,11 @@ Ny = Net.H.Ny;
 c0 = [0 0.4470 0.7410];   % первая фаза
 c2 = [0 0 0];             % вторая фаза (черный)
 
+if move
+    moveH = Net.H.Move;
+    moveV = Net.V.Move;
+end
+
 %%---------------------------------------------------
 %% Горизонтальные
 %%---------------------------------------------------
@@ -79,7 +84,7 @@ for i = 1:Net.H.Ny
         end
 
         if move
-            drawMoveMarker(targetAxes,(x1+x2)/2,y+0.12,Net.H.Move(i,j));
+            drawMoveMarker(targetAxes,(x1+x2)/2,y+0.12,moveH(i,j));
         end
 
     end
@@ -162,7 +167,7 @@ for i = 1:Net.V.Ny
         end
 
         if move && ~isClosedBoundary
-            drawMoveMarker(targetAxes,x+0.12,(y1+y2)/2,Net.V.Move(i,j));
+            drawMoveMarker(targetAxes,x+0.12,(y1+y2)/2,moveV(i,j));
         end
 
     end
@@ -310,8 +315,11 @@ if move
     end
 end
 
-legend(targetAxes,legendHandles,legendLabels,'Location','eastoutside', ...
+networkLegend = legend(targetAxes,legendHandles,legendLabels,'Location','eastoutside', ...
     'Interpreter','none','FontSize',8,'AutoUpdate','off','Box','off');
+if move
+    title(networkLegend,'Move сохранённого состояния','FontSize',8,'FontWeight','bold');
+end
 
 drawnow
 

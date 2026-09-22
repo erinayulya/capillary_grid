@@ -2,7 +2,7 @@ function run
 
 setupProject;
 
-evalin('base', 'clearvars Net');
+resetSimulationWorkspace(true);
 
 %% ============================================================
 % Окно
@@ -746,7 +746,7 @@ function startMain(saveResults)
 
     %% Передача Net в основной workspace
 
-    assignin('base', 'Net', Net);
+    assignin('base', 'runParameters', Net);
     assignin('base', 'runRecordResults', saveResults);
 
 
@@ -757,7 +757,7 @@ function startMain(saveResults)
 
     %% Закрытие окна
 
-    delete(fig);
+    if isvalid(fig), delete(fig); end
 
 end
 
