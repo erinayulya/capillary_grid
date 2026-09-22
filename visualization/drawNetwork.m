@@ -303,7 +303,7 @@ legendHandles(end+1) = plot(targetAxes,NaN,NaN, ...
 legendLabels{end+1} = ' ';
 
 if move
-    colors = [.8 .8 .8; 0 .6 0; 1 0 0; .5 .5 .5];
+    colors = [.8 .8 .8; 0 .6 0; 1 0 0; 1 .8 0];
     labels = {'Нет мениска', 'Мениск подвижен', 'Мениск заблокирован', ...
         sprintf('Мениск временно неподвижен\n(Pc >= dP)')};
     for markerIndex = 1:4
@@ -336,7 +336,7 @@ switch moveState
     case 2
         color = 'r';
     case 3
-        color = [0.5 0.5 0.5];
+        color = [1 0.8 0];
     otherwise
         return
 end
