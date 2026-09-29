@@ -3,8 +3,8 @@
 % Функция ищет капилляры, которые находятся в процессе заполнения
 % и чья насыщенность достигла 100%. Для такого капилляра 
 % меняются: state=1 -> state=2.
-% После в processNode() определяется, в каких соседних капиллярах
-% на входе нужно создать мениск.
+% Затем на каждом вызове проверяются все узлы с нефтью: в водяных
+% соседях создаётся мениск, если расход направлен от такого узла.
 
 function Net = calcState(Net)
 
@@ -17,22 +17,11 @@ function Net = calcState(Net)
     for i = 1:Net.H.Ny
         for j = 1:Net.H.Nx
             if Net.H.State(i,j)==1 && Net.H.Sat(i,j)>=1-tol
-                dir = Net.H.Dir(i,j);
                 Net.H.State(i,j)=2;
                 Net.H.Sat(i,j)=1;
                 Net.H.Move(i,j)=0;
                 Net.H.Dir(i,j)=0;
                 Net.H.Regime(i,j)=0;
-                
-                nodeRow=i;
-                if dir > 0
-                    nodeCol=j+1;
-                    from='L'; % from left side
-                else
-                    nodeCol=j;
-                    from='R'; % from right side
-                end
-                Net=processNode(Net,nodeRow,nodeCol,from);
             end
         end
     end
@@ -44,43 +33,48 @@ function Net = calcState(Net)
     for i=1:Net.V.Ny
         for j=1:Net.V.Nx
             if Net.V.State(i,j)==1 && Net.V.Sat(i,j)>=1-tol
-                dir = Net.V.Dir(i,j);
                 Net.V.State(i,j)=2;
                 Net.V.Sat(i,j)=1;
                 Net.V.Move(i,j)=0;
                 Net.V.Dir(i,j)=0;
                 Net.V.Regime(i,j)=0;
-                if dir > 0
-                    nodeRow=i;
-                    nodeCol=j+1;
-                    from='U'; % from upper
-                else
-                    nodeRow=i-1;
-                    nodeCol=j+1;
-                    from='D'; % from down
-                end
-                Net=processNode(Net,nodeRow,nodeCol,from);
             end
         end
+    end
+
+    % Нефть у внутреннего узла: State=2 с любого конца либо State=1
+    % со стороны входа мениска (Dir), в том числе при Sat=0.
+    % Маска строится до создания новых менисков; индексы как у Net.P.
+    oilNodes = ...
+        Net.H.State(:,1:end-1)==2 | ...
+        (Net.H.State(:,1:end-1)==1 & Net.H.Dir(:,1:end-1)<0) | ...
+        Net.H.State(:,2:end)==2 | ...
+        (Net.H.State(:,2:end)==1 & Net.H.Dir(:,2:end)>0) | ...
+        Net.V.State(1:end-1,:)==2 | ...
+        (Net.V.State(1:end-1,:)==1 & Net.V.Dir(1:end-1,:)<0) | ...
+        Net.V.State(2:end,:)==2 | ...
+        (Net.V.State(2:end,:)==1 & Net.V.Dir(2:end,:)>0);
+    [rows,cols] = find(oilNodes);
+    for k = 1:numel(rows)
+        Net = processNode(Net,rows(k),cols(k)+1);
     end
 end
 
 
 %% Продвижение мениска из узла
 %
-% Для капилляра, у которого мениск продвинулся к выходному узлу,
-% функция определеяет, у каких из трех соседей нужно на входе создать
-% мениск. Если сосед заполнен только вытесняемой фазой и расход направлен 
+% Для узла с нефтью функция проверяет всех водяных соседей на каждом шаге.
+% Если сосед заполнен только вытесняемой фазой и расход направлен
 % от узла с мениском, то мениск создается. 
 % Меняется: state=0 -> state=1.
 
-function Net = processNode(Net,row,col,from)
+function Net = processNode(Net,row,col)
 
     %-------------------------------------------------------
     % Горизонтальный вправо
     %-------------------------------------------------------
     if row >= 1 && row <= Net.H.Ny && ...
-            col >= 1 && col <= Net.H.Nx && from ~= 'R'
+            col >= 1 && col <= Net.H.Nx
         if Net.H.State(row,col) == 0 && Net.H.Q(row,col) > 0
             Net.H.State(row,col) = 1;
             Net.H.Sat(row,col) = 0;
@@ -93,7 +87,7 @@ function Net = processNode(Net,row,col,from)
     %-------------------------------------------------------
     % Горизонтальный влево
     %-------------------------------------------------------
-    if row >= 1 && row <= Net.H.Ny && col > 1 && from ~= 'L'
+    if row >= 1 && row <= Net.H.Ny && col > 1
         if Net.H.State(row,col-1) == 0 && Net.H.Q(row,col-1) < 0
             Net.H.State(row,col-1) = 1;
             Net.H.Sat(row,col-1) = 0;
@@ -106,7 +100,7 @@ function Net = processNode(Net,row,col,from)
     %-------------------------------------------------------
     % Вертикальный вниз
     %-------------------------------------------------------
-    if row < Net.V.Ny && col > 1 && col-1 <= Net.V.Nx && from ~= 'D'
+    if row < Net.V.Ny && col > 1 && col-1 <= Net.V.Nx
         if Net.V.State(row+1,col-1) == 0 && Net.V.Q(row+1,col-1) > 0
             Net.V.State(row+1,col-1) = 1;
             Net.V.Sat(row+1,col-1) = 0;
@@ -119,7 +113,7 @@ function Net = processNode(Net,row,col,from)
     %-------------------------------------------------------
     % Вертикальный вверх
     %-------------------------------------------------------
-    if row >= 1 && col > 1 && col-1 <= Net.V.Nx && from ~= 'U'
+    if row >= 1 && col > 1 && col-1 <= Net.V.Nx
         if Net.V.State(row,col-1) == 0 && Net.V.Q(row,col-1) < 0
             Net.V.State(row,col-1) = 1;
             Net.V.Sat(row,col-1) = 0;
