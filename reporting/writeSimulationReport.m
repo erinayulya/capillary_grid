@@ -65,14 +65,13 @@ exportPage(fig,temporaryPdf,width,height,false);
 files = dir(fullfile(directory,'step_*.mat'));
 [~,order] = sort({files.name});
 for k = order
-    snapshot = load(fullfile(directory,files(k).name));
+    snapshot = loadSimulationStep(fullfile(directory,files(k).name));
     Net = snapshot.Net;
-    if isfield(snapshot,'reportNet'), Net = snapshot.reportNet; end
     canvas = page(fig,width,height);
     label(canvas,40,38,sprintf('Шаг %d',snapshot.step),20,true);
     label(canvas,40,72,sprintf('dt выполненного шага = %.12g с     t = %.12g с', ...
         snapshot.dtUsed,snapshot.elapsedTime),12,true);
-    label(canvas,40,100,sprintf('dt после решения для следующего шага = %.12g с',snapshot.Net.dt),10,false);
+    label(canvas,40,100,sprintf('dt после решения для следующего шага = %.12g с',snapshot.solvedNet.dt),10,false);
     if isfield(snapshot,'stepComputeTime') && isfield(snapshot,'totalComputeTime')
         computeText = sprintf('Вычисления шага: %.6g с; накопленное время вычислений: %.6g с', ...
             snapshot.stepComputeTime,snapshot.totalComputeTime);
@@ -80,7 +79,7 @@ for k = order
         computeText = 'Время вычислений шага и накопленное: не измерялось.';
     end
     label(canvas,40,126,computeText,10,true);
-    if snapshot.step > 0 && isfield(snapshot,'reportNet')
+    if strcmp(snapshot.reportPhase,'beforeSolve')
         phaseText = 'Перед решением: P и Q предыдущего шага; Sat, State, Move и Regime обновлены.';
     else
         phaseText = 'Состояние после решения; Move показан без пересчёта.';
