@@ -43,10 +43,14 @@ true рассчитывает автоматически, без окон гра
 Каждый запуск создаёт отдельную папку results/run_<дата>_<уникальный суффикс>/:
 - report.pdf: титульный лист, начальное состояние (шаг 0), листы шагов;
 - parameters.mat: Net перед первым вызовом решателя;
-- step_000000.mat и последующие: Net, step, dtUsed, elapsedTime, stepComputeTime, totalComputeTime;
+- step_000000.mat и последующие: Net (как на странице PDF), solvedNet (после решения),
+  reportPhase, step, dtUsed, elapsedTime, stepComputeTime, totalComputeTime;
 - summary.mat: result, parameters и последнее принятое Net.
 
-dtUsed - интервал выполненного шага; Net.dt - интервал для следующего шага.
+dtUsed - интервал выполненного шага; solvedNet.dt - интервал следующего шага.
+На шагах >0 Net — снимок до решения, поэтому его P/Q и dt относятся к предыдущему
+решению. Для продолжения расчёта используется solvedNet. summary.Net — итог решения.
+Старые MAT с reportNet читаются функцией loadSimulationStep без изменения файла.
 На шаге 0 dtUsed=0, elapsedTime=0. Общее время равно сумме dtUsed,
 не включает ещё не выполненный следующий шаг и время работы компьютера.
 В PDF приведены P и обе ориентации Q, Dir, Sat, State, Move, Regime.
