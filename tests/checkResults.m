@@ -67,8 +67,8 @@ fprintf(fid,['Допуски: Q/баланс=%.4g м³/с; P=%.4g Па; Sat=%.4g
     tol.flow,tol.pressure,tol.saturation,tol.time,tol.relative);
 fprintf(fid,['State=0: вода; State=1: мениск; State=2: нефть.\n', ...
     'Проверки 1 и 7 (Regime=0 у неподвижных) — дополнительные требования.\n', ...
-    'Выбор Move проверяется в переходе по прежнему P, использованному до решения.\n', ...
-    'Изменение давления после решения само по себе не означает ошибку выбора Move.\n', ...
+    'MAT с flowLaw=twoRegimeCurrentPressure: Move/Regime/Q проверяются по решённому P.\n', ...
+    'Старые MAT без метки: выбор Move проверяется по прежнему P до решения.\n', ...
     'Dir сравнивается со знаком Q только при State=1 и |Q|>допуска.\n', ...
     'Move=2: защемление, а не обязательно недостаток давления.\n', ...
     'WARNING также исключает итог all correct.\n\n']);
@@ -100,12 +100,12 @@ for k = 1:numel(files)
         requireSample(sample,ids(k));
         N = sample.Net;
         requireNet(N);
-        checkSnapshot(N);
+        checkSnapshot(N,isCurrentLaw(sample));
         if ids(k)==0
             if sample.dtUsed~=0 || sample.elapsedTime~=0
                 issue('ERROR','TIME','dtUsed/elapsedTime','На шаге 0 оба значения должны быть 0.');
             end
-            checkInitial(N);
+            checkInitial(N,isCurrentLaw(sample));
         elseif ~isempty(previous) && ids(k)==previousId+1
             checkTransition(previous,sample);
         else
@@ -158,7 +158,7 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
         end
     end
 
-    function checkSnapshot(N)
+    function checkSnapshot(N,currentLaw)
         C = capillaries(N);
         bounds = [0,N.H.P0];
         if N.VerticalBC, bounds(end+1)=N.V.P0; end
@@ -191,17 +191,20 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
         edges('ERROR','STATE',C,meniscus & (C.Move==0 | C.Sat>=1-1e-12), ...
             'Сохранённый мениск требует Move=1/2/3 и Sat<1-1e-12 после calcState.');
         held = meniscus & C.Move==3;
-        % The pressure used to choose Move is checked in checkTransition.
-        % Solved pressure may change afterwards without invalidating that choice.
+        % Legacy Move used old pressure; current-law Move uses solved pressure.
         edges('ERROR','6',C,held & abs(C.Q)>=tol.flow, ...
             'При Move=3 требуется |Q|<допуска расхода.');
         moving = meniscus & C.Move==1;
         edges('ERROR','7',C,moving & ~ismember(C.Regime,[1,2,3]), ...
             'Подвижному мениску требуется Regime=1/2/3.');
         edges('WARNING','7',C,meniscus & ~moving & C.Regime~=0, ...
-            'Требование Regime=0 у неподвижного мениска не выполнено; текущий calcRegime сохраняет прежний код.');
-        edges('ERROR','7',C,moving & abs(C.Q)<=tol.flow, ...
-            'Move=1, но расход численно равен нулю.');
+            'Требование Regime=0 у неподвижного мениска не выполнено.');
+        if currentLaw
+            checkCurrentLaw(N,C);
+        else
+            edges('ERROR','7',C,moving & abs(C.Q)<=tol.flow, ...
+                'Move=1, но расход численно равен нулю.');
+        end
         edges('ERROR','8',C,meniscus & C.Move==2 & abs(C.Q)>=tol.flow, ...
             'При Move=2 требуется |Q|<допуска расхода.');
         edges('ERROR','BC',C,C.closed & abs(C.Q)>=tol.flow, ...
@@ -214,7 +217,7 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
         end
     end
 
-    function checkInitial(N)
+    function checkInitial(N,currentLaw)
         file = fullfile(folder,'parameters.mat');
         if ~isfile(file)
             issue('ERROR','10','parameters.mat','Нет исходного состояния; происхождение начальных менисков не проверено.');
@@ -228,6 +231,9 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
             name = key{1};
             for field = {'Sat','State','Move','Dir','Regime'}
                 f = field{1};
+                if currentLaw && ismember(f,{'Move','Regime'})
+                    continue % Эти коды определяются первым решением, не параметрами.
+                end
                 if ~isfield(P.(name),f) || ~isequaln(P.(name).(f),N.(name).(f))
                     issue('ERROR','10',sprintf('Net.%s.%s',name,f), ...
                         'Начальное поле отличается от parameters.mat (до продвижения времени).');
@@ -313,8 +319,13 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
             'Dir изменился у прежнего мениска или не соответствует входу нового/сбросу заполненного.');
         edges('ERROR','10',C,C.Sat<old.Sat-tol.saturation, ...
             'Насыщенность уменьшилась: обратное движение не предусмотрено.');
-        % Проверить причину выбора Move по тому P, которое реально использовалось.
-        reference = N; reference.P=O.P;
+        % Старый порядок проверяется без переинтерпретации архивных данных.
+        reference = N;
+        pressureSource = 'решённому P';
+        if ~isCurrentLaw(newSample)
+            reference.P=O.P;
+            pressureSource = 'прежнему P';
+        end
         decision = capillaries(reference);
         allowed = waterPath(C);
         expectedMove = zeros(size(C.Move));
@@ -327,8 +338,49 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
         mismatch = C.Move~=expectedMove & ~(nearThreshold & ismember(C.Move,[1,3]));
         for e = find(mismatch)'
             issue('ERROR','6/8/9',edgeName(C,e), ...
-                'Move=%g, expected=%g по прежнему P; dP=%.17g, Pc=%.17g Па; путь отвода воды=%d, прежний Move=%g.', ...
-                C.Move(e),expectedMove(e),decision.dP(e),decision.Pc(e),allowed(e),old.Move(e));
+                'Move=%g, expected=%g по %s; dP=%.17g, Pc=%.17g Па; путь отвода воды=%d, прежний Move=%g.', ...
+                C.Move(e),expectedMove(e),pressureSource,decision.dP(e),decision.Pc(e),allowed(e),old.Move(e));
+        end
+    end
+
+    function checkCurrentLaw(N,C)
+        % Независимая проверка явного расхода, без вызова capillaryEquation.
+        mu = N.mu1;
+        if N.theta >= pi/2, mu = N.mu2; end
+        for e = find(C.State==1 & ~C.closed)'
+            r = sqrt(C.A(e)/pi);
+            resistance = 8/r^2*N.L*(N.mu1*(1-C.Sat(e))+N.mu2*C.Sat(e)) ...
+                -2*N.kdyn^3/(3*r)*mu*sin(N.theta);
+            coefficient = 2*N.kdyn*N.sigma*sin(N.theta)/r*(mu/N.sigma)^(1/3);
+            excess = max(C.dP(e)-C.Pc(e),0);
+            expectedRegime = 0; expectedFlow = 0; expectedMove = 3;
+            nearBoundary = false;
+            if C.Move(e)==2
+                expectedMove = 2;
+            elseif excess > 0
+                expectedMove = 1;
+                if resistance <= 0
+                    expectedRegime = 1;
+                    expectedFlow = C.A(e)*(excess/coefficient)^3;
+                else
+                    critical = sqrt(coefficient^3/resistance);
+                    nearBoundary = abs(excess-critical)<=tol.pressure;
+                    expectedFlow = C.A(e)*min((excess/coefficient)^3,excess/resistance);
+                    expectedRegime = 1+2*(excess>critical);
+                end
+            end
+            if abs(C.Dir(e)*C.Q(e)-expectedFlow)>=tol.flow
+                issue('ERROR','FLOW',edgeName(C,e), ...
+                    'Dir*Q=%.17g, ожидается %.17g м³/с по текущему P.', ...
+                    C.Dir(e)*C.Q(e),expectedFlow);
+            end
+            if C.Move(e)~=expectedMove && abs(C.dP(e)-C.Pc(e))>tol.pressure
+                issue('ERROR','6/7',edgeName(C,e),'Move=%g, ожидается %g по текущему P.',C.Move(e),expectedMove);
+            end
+            if C.Regime(e)~=expectedRegime && ...
+                    ~(nearBoundary && ismember(C.Regime(e),[1,3]))
+                issue('ERROR','7',edgeName(C,e),'Regime=%g, ожидается %g по текущему P.',C.Regime(e),expectedRegime);
+            end
         end
     end
 
@@ -533,4 +585,9 @@ function yes = sameTime(a,b,tol)
 yes=isnumeric(a) && isnumeric(b) && isscalar(a) && isscalar(b) && ...
     isreal(a) && isreal(b) && (isequal(a,b) || ...
     (isfinite(a) && isfinite(b) && abs(a-b)<=tol.time+tol.relative*max(abs(a),abs(b))));
+end
+
+function yes = isCurrentLaw(sample)
+yes = isfield(sample,'flowLaw') && ...
+    strcmp(sample.flowLaw,'twoRegimeCurrentPressure');
 end

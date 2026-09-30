@@ -116,7 +116,8 @@ function Net = solvePressureFlow(Net)
     err = norm(F./fScale,inf);
     if ~isfinite(err) || err >= tol
         disp(['Newton iter = ',num2str(iter),', err = ',num2str(err)])
-        warning('Newton: не достигнута заданная точность.')
+        error('solvePressureFlow:NoConvergence', ...
+            'Newton: не достигнута заданная точность; решение не принято.')
     end
     
     %%-------------------------------------------------------
@@ -132,4 +133,36 @@ function Net = solvePressureFlow(Net)
         reshape(X(idxQV(:)),Net.V.Ny,Net.V.Nx);
     
     Net.NewtonIterations = iter;
+    % Запись использованных ветвей; P/Q не пересчитываются и не обрезаются.
+    Net = storeSolvedBranches(Net);
+end
+
+function Net = storeSolvedBranches(Net)
+    dpH = [Net.H.P0*ones(Net.H.Ny,1),Net.P] - ...
+        [Net.P,zeros(Net.H.Ny,1)];
+    dpV = [Net.V.P0*ones(1,Net.V.Nx);Net.P] - ...
+        [Net.P;zeros(1,Net.V.Nx)];
+    for key = {'H','V'}
+        name = key{1};
+        Cap = Net.(name);
+        if name == 'H', dp = dpH; else, dp = dpV; end
+        for i = 1:Cap.Ny
+            for j = 1:Cap.Nx
+                if Cap.State(i,j) ~= 1
+                    Cap.Move(i,j) = 0;
+                    Cap.Regime(i,j) = 0;
+                elseif name == 'V' && ~Net.VerticalBC && ...
+                        (i == 1 || i == Cap.Ny)
+                    Cap.Move(i,j) = 2;
+                    Cap.Regime(i,j) = 0;
+                else
+                    [~,~,~,Cap.Regime(i,j),Cap.Move(i,j)] = ...
+                        capillaryEquation(Net,Cap.Dir(i,j)*dp(i,j), ...
+                        Cap.Dir(i,j)*Cap.Q(i,j),Cap.A(i,j),Cap.Sat(i,j), ...
+                        Cap.State(i,j),Cap.Regime(i,j),Cap.Move(i,j));
+                end
+            end
+        end
+        Net.(name) = Cap;
+    end
 end

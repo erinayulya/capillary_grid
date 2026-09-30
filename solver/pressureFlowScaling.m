@@ -1,6 +1,6 @@
 %% Масштабирование давлений, расходов и невязок
 %
-% Масштаб невязки выбирается по единицам уравнения: Па или м3/с.
+% Все активные уравнения записаны в м3/с, включая вязкую ветвь.
 
 function [xScale,fScale] = pressureFlowScaling(Net,idxP,idxQH,idxQV)
 
@@ -12,15 +12,4 @@ function [xScale,fScale] = pressureFlowScaling(Net,idxP,idxQH,idxQV)
     xScale(idxP(:)) = pScale;
     fScale = qScale*ones(n,1);
 
-    pressureH = Net.H.State==1 & Net.H.Move==1 & ...
-        (Net.H.Regime==2 | Net.H.Regime==3);
-    pressureV = Net.V.State==1 & Net.V.Move==1 & ...
-        (Net.V.Regime==2 | Net.V.Regime==3);
-
-    if ~Net.VerticalBC
-        pressureV([1,end],:) = false;
-    end
-
-    fScale(idxQH(pressureH)) = pScale;
-    fScale(idxQV(pressureV)) = pScale;
 end

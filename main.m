@@ -31,7 +31,7 @@ if ~exist('Net', 'var')
 end
 
 Net.kdyn = 2;
-Net.bound = 2;
+Net.bound = 1; % Плато и вязкий режим соединяются при Pi=PiCrit.
 if ~isfield(Net.V,'P0'), Net.V.P0 = 200; end
 
 %% ---------- Размер сети --------------------

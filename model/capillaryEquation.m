@@ -1,6 +1,6 @@
 %% Выбор зависимости Q=f(dp) в капилляре
 %
-% Функция определяет вид уравнения Q=f(dp) в зависимости от state и regime
+% Функция определяет вид уравнения Q=f(dp) по state, move и текущему dp
 % капилляра и возвращает для заданного приближения dp и q:
 % f - невязку уравнения
 % dfdp - производную уравнения по давлению
@@ -9,18 +9,24 @@
 % В функции реализовано несколько вариантов уравнений:
 % (1) Пуазейль, если капилляр заполнен одной фазой
 % (2) Нет течения, если мениск в капилляре заблокирован
-% (3) 3 режима течения с мениском:
+% (3) 2 режима течения с мениском:
 % - капиллярное плато
-% - переходной режим
+% - переходной режим закомментирован (сохранён ниже)
 % - вязкое течение
 
-function [f,dfdp,dfdq] = capillaryEquation(...
+function [f,dfdp,dfdq,regime,move] = capillaryEquation(...
     Net,dp,q,A,S,state,regime,move)
+    % Для мениска dp [Па] и q [м3/с] ориентированы по Dir.
+    % Входной regime сохранён для совместимости; выбирается заново по dp.
+    % Выходные regime/move описывают ветвь именно этого приближения.
+    % Все активные невязки f имеют единицы м3/с, dfdq=1.
+    regime = 0;
     
     %%-------------------------------------------------------
     %% Одна фаза, нет мениска
     %%-------------------------------------------------------
     if state==0 || state==2
+        move = 0;
         if state==0 % только вода
             mu = Net.mu1;
         else % только нефть
@@ -39,15 +45,15 @@ function [f,dfdp,dfdq] = capillaryEquation(...
     %% Неподвижный мениск
     % move = 2: мениск защемлен из-за потери связности по воде;
     % move = 3: мениск временно удерживается капиллярным порогом.
-    % В обоих случаях объемный расход через капилляр равен нулю.
-    if state==1 && (move==2 || move==3)
+    % Только защемление фиксировано. Move=1/3 уточняется по текущему dp.
+    if state==1 && move==2
         f=q;
         dfdp=0;
         dfdq=1;
         return
     end
 
-    if state==1 && move~=1
+    if state==1 && ~ismember(move,[1,3])
         error('Для капилляра с мениском Move должен быть равен 1, 2 или 3.')
     end
 
@@ -55,7 +61,15 @@ function [f,dfdp,dfdq] = capillaryEquation(...
     % Подготовка параметров
     r = sqrt(A/pi);
     Pc = 2*Net.sigma*cos(Net.theta)/r;
-    dpStar = dp-Pc; % dp* = dp - Pc
+    dpStar = max(dp-Pc,0); % Обратное продвижение не допускается.
+    if dpStar == 0
+        move = 3;
+        f = q;
+        dfdp = 0;
+        dfdq = 1;
+        return
+    end
+    move = 1;
     l2 = S*Net.L;
     l1 = Net.L-l2;
     if Net.theta < pi/2
@@ -71,7 +85,15 @@ function [f,dfdp,dfdq] = capillaryEquation(...
         2*k*Net.sigma*sin(Net.theta)/r ...
         *(muSm/Net.sigma)^(1/3);
     
-    % Выбор режима движения мениска
+    % При Aeff>0 две асимптотики пересекаются при dp*=sqrt(B^3/Aeff).
+    % Это Pi=PiCrit (бывший Net.bound=1). На границе выбирается плато.
+    % Aeff<=0: как прежде, только плато.
+    if Aeff <= 0 || dpStar <= sqrt(B^3/Aeff)
+        regime = 1;
+    else
+        regime = 3;
+    end
+    % Выбор ветви внутри одного решения сети, не по старому Net.Regime.
     switch regime
         case 1 % Капиллярное плато
             c = pi*r^2;
@@ -79,29 +101,30 @@ function [f,dfdp,dfdq] = capillaryEquation(...
             dfdp = -3*c*dpStar^2/B^3;
             dfdq = 1;
     
-        case 2 % Полная модель
-            v = q/A;
-            v13 = realCubeRoot(v);
-            f = dpStar-Aeff*v-B*v13;
-            dfdp = 1;
-            if abs(v)<1e-14
-                vreg = 1e-14;
-            else
-                vreg = v;
-            end
-            dfdq = ...
-                -Aeff/A ...
-                -B/(3*A*abs(vreg)^(2/3));
+        % case 2 % Полная модель (отключена по согласованию)
+        %     v = q/A;
+        %     v13 = realCubeRoot(v);
+        %     f = dpStar-Aeff*v-B*v13;
+        %     dfdp = 1;
+        %     if abs(v)<1e-14
+        %         vreg = 1e-14;
+        %     else
+        %         vreg = v;
+        %     end
+        %     dfdq = ...
+        %         -Aeff/A ...
+        %         -B/(3*A*abs(vreg)^(2/3));
     
         case 3
              % Вязкое вытеснение
-             f = dpStar-Aeff*(q/A);
-             dfdp = 1;
-             dfdq = -Aeff/A;
+             % То же уравнение, выраженное в м3/с для общего масштаба.
+             f = q-A*dpStar/Aeff;
+             dfdp = -A/Aeff;
+             dfdq = 1;
     end
 end
 
-% Вспомогательная функция для расчета кубического корня
-function y = realCubeRoot(x)
-    y = sign(x)*abs(x)^(1/3);
-end
+% Вспомогательная функция отключённого переходного режима:
+% function y = realCubeRoot(x)
+%     y = sign(x)*abs(x)^(1/3);
+% end

@@ -52,10 +52,14 @@ solver/solvePressureFlow.m: Net = solvePressureFlow(Net)
   При наличии P и Q подходящих размеров использует их как начальное приближение.
   Решает совместную нелинейную систему давлений и расходов методом Ньютона
   с масштабированием и уменьшением шага.
-  Выход: Net с P, H.Q, V.Q, NewtonIterations.
-  Вызывает pressureFlowScaling и calcResidualJacobian.
-  Некорректный шаг/неудачный поиск шага: error; итоговая невязка выше допуска:
-  warning, без отдельного признака отказа в возвращаемом Net.
+  Выход: Net с P, H.Q, V.Q, NewtonIterations и согласованными H/V.Move/Regime.
+  Один вызов решает сеть с остановкой/открытием по текущему пробному P.
+  Вызывает pressureFlowScaling, calcResidualJacobian и storeSolvedBranches.
+  storeSolvedBranches(Net): записывает ветви принятого решения через
+  capillaryEquation; P/Q/Sat/State/Dir не меняет, второй системы не решает.
+  Для закрытой вертикальной границы с мениском задаёт Move=2, Regime=0.
+  Некорректный шаг/неудачный поиск шага: error; превышение допуска после
+  итераций: error solvePressureFlow:NoConvergence, результат не возвращается.
 
 solver/calcResidualJacobian.m:
   [F,J] = calcResidualJacobian(Net,X,idxP,idxQH,idxQV)
@@ -63,28 +67,37 @@ solver/calcResidualJacobian.m:
   X содержит давления, затем горизонтальные и вертикальные расходы.
   Выход: F — столбец невязок; J — разреженный якобиан.
   Вызывает capillaryEquation; для закрытых вертикальных границ задаёт Q=0.
-  Net не изменяет. Компоненты F имеют разные физические единицы.
+  Net не изменяет. Все активные компоненты F имеют единицы м3/с.
 
 solver/pressureFlowScaling.m:
   [xScale,fScale] = pressureFlowScaling(Net,idxP,idxQH,idxQV)
   Возвращает масштабы неизвестных и уравнений: 1e3 Па и 1e-11 м3/с.
-  Учитывает State, Move, Regime и закрытые вертикальные границы.
+  Все fScale=1e-11 м3/с, независимо от смены ветви во время итераций.
+  Давления в X масштабируются 1e3 Па, расходы — 1e-11 м3/с.
   Net не изменяет.
 
 model/capillaryEquation.m:
-  [f,dfdp,dfdq] = capillaryEquation(Net,dp,q,A,S,state,regime,move)
-  Уравнение одного капилляра и производные по перепаду и расходу.
-  Для одной фазы — закон Пуазейля; для удержанного/защемлённого мениска — q=0;
-  для подвижного — плато, полная модель или вязкое приближение по regime.
+  [f,dfdp,dfdq,regime,move] = capillaryEquation(Net,dp,q,A,S,state,regime,move)
+  Уравнение одного капилляра: f=q-Q(dp), м3/с, и производные
+  dfdp [м3/(с*Па)], dfdq=1. Все аргументы капилляра скалярные.
+  Для одной фазы — Пуазейль; для Move=2 — q=0 независимо от dp.
+  При входном Move=1 или 3 ветвь определяется текущим dp:
+  dpStar=max(dp-Pc,0); при нуле Move=3, Regime=0, q=0.
+  Иначе Move=1; при Aeff>0 плато до sqrt(B^3/Aeff) включительно,
+  вязкая ветвь выше; это единая граница Pi=PiCrit. При Aeff<=0 только плато.
+  Плато: Q=A*(dpStar/B)^3; вязкая ветвь: Q=A*dpStar/Aeff.
+  Входной regime сохранён для совместимости, не фиксирует ветвь.
   Для мениска вызывающая функция ориентирует dp и q с помощью Dir.
-  Net не изменяет. Подвижный мениск требует корректного regime=1/2/3.
-  realCubeRoot(x): вещественный кубический корень, сохраняющий знак.
+  Net не изменяет. Дополнительные выходы сообщают использованную ветвь.
+  case 2 и realCubeRoot закомментированы, не удалены и не выполняются.
 
 model/calcCanMove.m: Net = calcCanMove(Net)
   Читает State, прежний Move, Dir, Sat, P, геометрию и параметры Pc.
   Вызывает calcWaterConnectivity. Обновляет H.Move и V.Move.
   Move=2 сохраняется для существующего мениска; Move=3 проверяется повторно.
   Для перехода к Move=1 нужны разрешённая связность/граничный случай и dP>Pc.
+  Это предварительный выбор по прежнему P; solvePressureFlow уточняет 1/3
+  по своему решению. Связность и необратимость Move=2 не изменены.
 
 model/calcWaterConnectivity.m:
   [WaterConnectedH,WaterConnectedV] = calcWaterConnectivity(Net)
@@ -96,9 +109,9 @@ model/calcWaterConnectivity.m:
 model/calcRegime.m: Net = calcRegime(Net)
   По ориентированному перепаду давления, насыщенности и параметрам модели
   выбирает H.Regime/V.Regime только для State=1 и Move=1.
-  Остальные значения Regime функция не сбрасывает.
-  calcOneRegime(r,Sat,dpStar,Net): возвращает 1, 2 или 3 через сравнение
-  Pi с PiCrit/Net.bound и Net.bound*PiCrit; при Aeff<=0 возвращает 1.
+  Остальные значения Regime сбрасывает в 0. Вызывает capillaryEquation
+  для единого правила двух режимов. Старый calcOneRegime закомментирован.
+  Окончательный Regime записывает solvePressureFlow по принятому давлению.
 
 model/calcTimeStep.m: Net = calcTimeStep(Net)
   Вычисляет Net.dt как минимальное время до заполнения подвижного капилляра.
@@ -213,6 +226,8 @@ reporting/measureComputeTime.m:
 
 reporting/saveSimulationStep.m:
   saveSimulationStep(solvedNet,result,dtUsed,stepComputeTime,reportNet)
+  Добавляет вне Net метаданные flowLaw='twoRegimeCurrentPressure', чтобы
+  валидатор отличал новые уравнения от архивного выбора по прежнему давлению.
   Записывает step_XXXXXX.mat по result.directory/result.steps.
   reportNet — необязательная копия для отчёта; по умолчанию равна solvedNet.
   В MAT Net=reportNet — состояние рисунка и таблиц; solvedNet — результат решения.
@@ -227,7 +242,8 @@ reporting/writeSimulationReport.m: pdfPath = writeSimulationReport(directory)
   Первый лист содержит параметры и итог, затем шаг 0 и по листу на шаг:
   выполненный dt, накопленное модельное время, следующий solvedNet.dt, рисунок и 16 матриц.
   На первом листе также выводит постоянные по симуляции матрицы капиллярного
-  давления p_c для H и V, Па. Таблица Net.P центрирована над колонкой H,
+  давления p_c для H и V, Па. Таблица Net.P занимает ширину колонки H
+  с теми же отступами и шириной width/2-60, что H.Q;
   рисунок и узкая легенда справа от него — единым блоком над колонкой V.
   Легенда: одна колонка, шрифт 7 pt, длинные подписи разбиты на строки.
   Рисунок и все матрицы берутся из Net после loadSimulationStep: состояние перед решением,
@@ -269,10 +285,13 @@ tests/checkResults.m: reports = checkResults(target, options)
   соседними шагами, источник новых менисков и причину завершения без прорыва.
   Продвижение и распространение восстанавливает независимо по прежним Q/dt
   и графу узлов, не вызывая calcState/calcSaturation/calcCanMove.
-  Выбор Move сравнивает в переходе с прежним P, использованным до решения.
-  Изменение P после решения не выдаётся как WARNING выбора Move.
-  Не проверяет полную невязку капиллярных уравнений и правильность выбора ветви
-  Regime=1/2/3 по Pi: проверяются именно оговорённые условия согласованности.
+  Для старых MAT без flowLaw выбор Move сравнивает с прежним P;
+  их уравнения и выбор ветви Regime по Pi не проверяет.
+  Для flowLaw=twoRegimeCurrentPressure независимо проверяет расход мениска,
+  Move и Regime по решённому P (checkCurrentLaw), включая начальный шаг.
+  На начальном шаге новой схемы Move/Regime могут отличаться от parameters;
+  State/Sat/Dir должны совпадать. Новые поля в Net не добавлены.
+  isCurrentLaw(sample) определяет правила по метаданным MAT, не по bound.
   Выход reports: массив структур directory, report, steps, errors, warnings,
   allCorrect. steps здесь — число проверенных снимков, включая шаг 0.
   Побочный эффект: создаёт/перезаписывает UTF-8 tests_relults.txt в каждой папке.
@@ -325,3 +344,20 @@ tests/testSimulationStepStorage.m: testSimulationStepStorage()
   чтение двух старых форматов. Временные файлы создаются только в tmp.
   checkResults читает solvedNet для уравнений, переходов и сверки summary.Net;
   при отсутствии solvedNet использует старое значение Net.
+
+tests/testTwoRegimeFlow.m: класс matlab.unittest.TestCase
+  Проверяет удержание/открытие при входных Move=1/3, необратимость Move=2,
+  непрерывность стыка, производные, оба знака H/V, баланс и полный прогон
+  исходной геометрии и геометрии main. Проверяет валидатор на новой метке
+  и повреждённых Q/Move/Regime. Файлы тестов валидатора создаёт в tmp.
+  Проверочный replay выполняет один solvePressureFlow на снимок;
+  он не используется основной программой и не заменяет цикл main.
+
+tests/replayTwoRegimeRun.m: report = replayTwoRegimeRun(sourceDirectory,outputRoot)
+  Проверочный повтор parameters.mat в отдельной папке run_*_two_regime.
+  В копии параметров задаёт bound=1; остальное сохраняет. Новая папка содержит
+  parameters.mat, step_*.mat, summary.mat и tests_relults.txt; PDF не строится.
+  outputRoot по умолчанию results проекта; исходные файлы не перезаписывает.
+  Лимит проверочного повтора 200 шагов. Выход — структура checkResults.
+  Не запускает main и не меняет base workspace/окна/persistent simulationReport.
+  При ошибке решателя выбрасывает исключение; успешная проверка не заявляется.
