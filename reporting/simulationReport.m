@@ -18,8 +18,7 @@ switch action
         validateattributes(recordResults,{'logical'},{'scalar'});
         validateattributes(maxSteps,{'numeric'},{'scalar','integer','positive','finite'});
         session = struct('recordResults',recordResults,'maxSteps',maxSteps, ...
-            'parameters',Net,'lastNet',Net,'snapshots',0,'dtUsed',0,'timer',[], ...
-            'reportNet',[],'partialComputeTime',0);
+            'parameters',Net,'lastNet',Net,'snapshots',0,'dtUsed',0,'timer',[]);
         session.result = struct('startedAt',datestr(now,'yyyy-mm-dd HH:MM:SS'), ...
             'totalTime',0,'totalComputeTime',0,'failedComputeTime',0, ...
             'steps',0,'status','Расчёт не завершён.','directory','','pdf','');
@@ -38,30 +37,17 @@ switch action
             save(fullfile(session.result.directory,'parameters.mat'),'parameters');
         end
         [session.result,session.timer] = measureComputeTime('start',session.result);
-    case 'capture'
-        requireSession(session);
-        [session.result,session.timer,session.partialComputeTime] = ...
-            measureComputeTime('stop',session.result,session.timer);
-        session.reportNet = Net;
-        if ~session.recordResults
-            drawNetwork(session.reportNet,true);
-        end
-        [session.result,session.timer] = measureComputeTime('start',session.result);
     case 'snapshot'
         requireSession(session);
         [session.result,session.timer,seconds] = ...
             measureComputeTime('stop',session.result,session.timer);
-        seconds = seconds + session.partialComputeTime;
-        session.partialComputeTime = 0;
         session.result.steps = session.snapshots;
         session.result.totalTime = session.result.totalTime + session.dtUsed;
         session.lastNet = Net;
-        reportNet = session.reportNet;
-        if isempty(reportNet), reportNet = Net; end
         if session.recordResults
-            saveSimulationStep(Net,session.result,session.dtUsed,seconds,reportNet);
+            saveSimulationStep(Net,session.result,session.dtUsed,seconds);
             saveSummary(session,Net);
-        elseif isempty(session.reportNet)
+        else
             drawNetwork(Net,session.result.steps > 0);
         end
         session.snapshots = session.snapshots + 1;
@@ -85,8 +71,6 @@ switch action
         end
         if strcmp(output,'Продолжить')
             session.dtUsed = Net.dt;
-            session.reportNet = [];
-            session.partialComputeTime = 0;
             [session.result,session.timer] = measureComputeTime('start',session.result);
         end
     case 'finish'
@@ -109,8 +93,6 @@ switch action
             [session.result,session.timer] = ...
                 measureComputeTime('fail',session.result,session.timer);
         end
-        session.result.failedComputeTime = ...
-            session.result.failedComputeTime + session.partialComputeTime;
         session.result.status = ['Ошибка расчёта: ' options.message];
         restoredNet = session.lastNet;
         if session.recordResults

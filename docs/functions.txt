@@ -1,14 +1,14 @@
 СПРАВОЧНИК ФУНКЦИЙ
-Дата сверки: 29.09.2026. Пути рабочих файлов приведены ниже.
+Дата сверки: 30.09.2026. Пути рабочих файлов приведены ниже.
 Локальные функции перечислены рядом с основной.
 
 main.m — скрипт, не функция.
   Основа — main.m коммита e1edfa297816bd757ae2df1cd335a99182f3a71d.
   Компактная структура сохранена; порядок расчётных вызовов согласован отдельно
-  21.09.2026 и восстановлен из 86f8807 (до отката к старому порядку).
+  21.09.2026; 30.09.2026 удалён предварительный выбор режима перед решением.
   Первый расчёт: solvePressureFlow -> calcTimeStep.
   Цикл непосредственно в main: calcSaturation -> calcState -> calcCanMove
-  -> calcRegime -> solvePressureFlow -> calcTimeStep.
+  -> solvePressureFlow -> calcTimeStep.
   Текущие параметры пользователя сохранены (в том числе H.P0=1500 Па).
   setupProject подключает рабочие папки; resetSimulationWorkspace очищает
   прежние переменные, persistent-сессию отчёта и все окна figure/uifigure.
@@ -16,8 +16,8 @@ main.m — скрипт, не функция.
   runParameters однократно становится Net и удаляется. Старый Net не используется.
   Добавлены Dir/Dir_prev для текущих функций модели,
   V.P0=200 Па при отсутствии этого поля в параметрах интерфейса.
-  Шесть штатных вызовов simulationReport обслуживают запуск, два места сохранения
-  итога шага, capture после calcRegime перед solvePressureFlow, продолжение и завершение. main сам проверяет
+  Вызовы simulationReport обслуживают запуск, два места сохранения
+  решения, продолжение, завершение и ошибку. main сам проверяет
   прорыв, выполняет while и break, копирует *_prev и вызывает функции модели.
   runRecordResults=true включает MAT/PDF без диалогов; false или отсутствие
   переменной — пошаговый режим с графиками. Флаг копируется в recordResults
@@ -106,13 +106,6 @@ model/calcWaterConnectivity.m:
   Закрытые верхние/нижние граничные капилляры исключаются из передачи метки.
   Net не изменяет.
 
-model/calcRegime.m: Net = calcRegime(Net)
-  По ориентированному перепаду давления, насыщенности и параметрам модели
-  выбирает H.Regime/V.Regime только для State=1 и Move=1.
-  Остальные значения Regime сбрасывает в 0. Вызывает capillaryEquation
-  для единого правила двух режимов. Старый calcOneRegime закомментирован.
-  Окончательный Regime записывает solvePressureFlow по принятому давлению.
-
 model/calcTimeStep.m: Net = calcTimeStep(Net)
   Вычисляет Net.dt как минимальное время до заполнения подвижного капилляра.
   calcTimeStepEval(Cap,Net): минимизирует (1-S)*L/(abs(Q)/A)
@@ -183,13 +176,11 @@ reporting/simulationReport.m:
   с именем run_YYYYMMDD_HHMMSS; при занятом имени добавляет _2, _3 и т.д.
   запускает таймер. options для start — recordResults=false (logical);
   outputRoot=results/ проекта, maxSteps=10000 (положительное целое число).
-  capture: фиксирует reportNet после calcRegime перед solvePressureFlow.
-  В пошаговом режиме сразу рисует этот снимок с Move; при записи сохраняет
-  его в памяти до успешного завершения шага. На время capture таймер остановлен.
-  snapshot: после calcTimeStep суммирует два интервала времени шага, обновляет
-  счётчики, запоминает lastNet и пишет снимок отчёта как Net, итог решения
-  как solvedNet в MAT. Поля Net модели и основной порядок не изменяет.
-  Повторно график не рисует; снимок 0 (без capture) рисуется после первого решения.
+  snapshot: после calcTimeStep завершает единый замер вычислений шага,
+  обновляет счётчики, запоминает lastNet и пишет одно принятое состояние
+  как Net и solvedNet в MAT. В пошаговом режиме рисует именно это решение;
+  снимок 0 тоже показывается после первого решения. P/Q/Move/Regime согласованы.
+  Отрисовка и запись выполняются после остановки таймера.
   В режиме записи также обновляет summary.mat с итоговым Net.
   next: возвращает 'Продолжить'/'Стоп', показывает прежний диалог в пошаговом
   режиме; в режиме записи отвечает автоматически (стоп при плохом dt/лимите).
@@ -225,13 +216,13 @@ reporting/measureComputeTime.m:
   запись MAT, построение PDF, графики, диалоги и инициализацию main.
 
 reporting/saveSimulationStep.m:
-  saveSimulationStep(solvedNet,result,dtUsed,stepComputeTime,reportNet)
+  saveSimulationStep(solvedNet,result,dtUsed,stepComputeTime)
   Добавляет вне Net метаданные flowLaw='twoRegimeCurrentPressure', чтобы
   валидатор отличал новые уравнения от архивного выбора по прежнему давлению.
   Записывает step_XXXXXX.mat по result.directory/result.steps.
-  reportNet — необязательная копия для отчёта; по умолчанию равна solvedNet.
-  В MAT Net=reportNet — состояние рисунка и таблиц; solvedNet — результат решения.
-  reportPhase='beforeSolve' при переданной копии шага >0, иначе 'afterSolve'.
+  В MAT Net=solvedNet — одно принятое решение для рисунка и таблиц.
+  reportPhase всегда 'afterSolve', включая шаг 0. Отдельного входного
+  снимка до решения нет; Regime записывается вместе с соответствующими P/Q.
   Сохраняет Net, solvedNet, reportPhase, step, dtUsed, elapsedTime=result.totalTime,
   stepComputeTime и totalComputeTime=result.totalComputeTime.
   Все времена — скалярные секунды; step — скалярный номер снимка от 0.
@@ -246,8 +237,8 @@ reporting/writeSimulationReport.m: pdfPath = writeSimulationReport(directory)
   с теми же отступами и шириной width/2-60, что H.Q;
   рисунок и узкая легенда справа от него — единым блоком над колонкой V.
   Легенда: одна колонка, шрифт 7 pt, длинные подписи разбиты на строки.
-  Рисунок и все матрицы берутся из Net после loadSimulationStep: состояние перед решением,
-  P/Q предыдущего шага и обновлённые Sat/State/Move/Regime. Отдельного
+  Рисунок и все матрицы берутся из Net после loadSimulationStep: для новых снимков
+  это принятое решение с согласованными P/Q/Move/Regime. Отдельного
   расчёта Move нет. Под основными полями выводит сохранённые Move, как
   на рисунке, затем Δp−p_c по давлению того же Net только для State=1.
   Старые MAT читаются через loadSimulationStep с сохранением прежнего вида PDF;
@@ -340,8 +331,9 @@ reporting/loadSimulationStep.m: snapshot = loadSimulationStep(path)
   writeSimulationReport использует этот единый источник данных страницы.
 
 tests/testSimulationStepStorage.m: testSimulationStepStorage()
-  Проверяет запись Net=снимок PDF, сохранение solvedNet и времён, шаг 0,
-  чтение двух старых форматов. Временные файлы создаются только в tmp.
+  Проверяет запись Net=solvedNet=снимок PDF вместе с Q/Regime и временами,
+  фазу afterSolve на шагах 0 и 1, чтение трёх старых вариантов снимка.
+  Временные файлы создаются только в tmp.
   checkResults читает solvedNet для уравнений, переходов и сверки summary.Net;
   при отсутствии solvedNet использует старое значение Net.
 

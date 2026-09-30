@@ -82,7 +82,7 @@ for k = order
     if strcmp(snapshot.reportPhase,'beforeSolve')
         phaseText = 'Перед решением: P и Q предыдущего шага; Sat, State, Move и Regime обновлены.';
     else
-        phaseText = 'Состояние после решения; Move показан без пересчёта.';
+        phaseText = 'Сохранённое состояние после решения сети.';
     end
     label(canvas,40,150,phaseText,10,false);
     leftCenter = 40 + (width/2-60)/2;

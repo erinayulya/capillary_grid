@@ -44,12 +44,13 @@ true рассчитывает автоматически, без окон гра
 - report.pdf: титульный лист, начальное состояние (шаг 0), листы шагов;
 - parameters.mat: Net перед первым вызовом решателя;
 - step_000000.mat и последующие: Net (как на странице PDF), solvedNet (после решения),
-  reportPhase, step, dtUsed, elapsedTime, stepComputeTime, totalComputeTime;
+  reportPhase, flowLaw, step, dtUsed, elapsedTime, stepComputeTime, totalComputeTime;
 - summary.mat: result, parameters и последнее принятое Net.
 
 dtUsed - интервал выполненного шага; solvedNet.dt - интервал следующего шага.
-На шагах >0 Net — снимок до решения, поэтому его P/Q и dt относятся к предыдущему
-решению. Для продолжения расчёта используется solvedNet. summary.Net — итог решения.
+С 30.09.2026 на всех шагах Net=solvedNet: P/Q/Move/Regime относятся к одному
+принятому решению. reportPhase='afterSolve'. summary.Net — итог решения.
+Архивные MAT со снимком до решения сохраняют прежнее содержание при чтении.
 Старые MAT с reportNet читаются функцией loadSimulationStep без изменения файла.
 На шаге 0 dtUsed=0, elapsedTime=0. Общее время равно сумме dtUsed,
 не включает ещё не выполненный следующий шаг и время работы компьютера.

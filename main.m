@@ -115,10 +115,6 @@ while true
 
     Net = calcCanMove(Net);
 
-    Net = calcRegime(Net);
-
-    simulationReport('capture',Net);
-
     Net = solvePressureFlow(Net);
 
     Net = calcTimeStep(Net);
