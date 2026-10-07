@@ -1,0 +1,25 @@
+ПРОВЕРКА СОГЛАСОВАННОСТИ Net
+Папка: C:\Users\erina\Documents\MATLAB\Disser\capillary_grid\2023a\tmp\tp834f8ed1_e399_4d0b_aeb6_78b0d8767e4b
+Дата: 2026-10-07 22:48:53
+Допуски: Q/баланс=1e-19 м³/с; P=1e-05 Па; Sat=1e-12; время=1e-12 с; относительный=1e-10.
+State=0: вода; State=1: мениск; State=2: нефть.
+Проверки 1 и 7 (Regime=0 у неподвижных) — дополнительные требования.
+MAT с flowLaw=twoRegimeCurrentPressure: Move/Regime/Q проверяются по решённому P.
+Старые MAT без метки: выбор Move проверяется по прежнему P до решения.
+Dir сравнивается со знаком Q только при State=1 и |Q|>допуска.
+Move=2: защемление, а не обязательно недостаток давления.
+WARNING также исключает итог all correct.
+
+ШАГ 0: C:\Users\erina\Documents\MATLAB\Disser\capillary_grid\2023a\tmp\tp834f8ed1_e399_4d0b_aeb6_78b0d8767e4b\step_000000.mat
+  [ERROR][6] C:\Users\erina\Documents\MATLAB\Disser\capillary_grid\2023a\tmp\tp834f8ed1_e399_4d0b_aeb6_78b0d8767e4b\step_000000.mat | Net.H(1,1): При Move=3 требуется |Q|<допуска расхода. State=1 Sat=0 Move=3 Dir=1 Regime=3 Q=1.8499591000348304e-06 м³/с; dP=581.54910989600739 Pc=175.46397922417006 Па.
+  [WARNING][7] C:\Users\erina\Documents\MATLAB\Disser\capillary_grid\2023a\tmp\tp834f8ed1_e399_4d0b_aeb6_78b0d8767e4b\step_000000.mat | Net.H(1,1): Требование Regime=0 у неподвижного мениска не выполнено. State=1 Sat=0 Move=3 Dir=1 Regime=3 Q=1.8499591000348304e-06 м³/с; dP=581.54910989600739 Pc=175.46397922417006 Па.
+  [ERROR][6/7] C:\Users\erina\Documents\MATLAB\Disser\capillary_grid\2023a\tmp\tp834f8ed1_e399_4d0b_aeb6_78b0d8767e4b\step_000000.mat | Net.H(1,1): Move=3, ожидается 1 по текущему P.
+  [ERROR][TIME] C:\Users\erina\Documents\MATLAB\Disser\capillary_grid\2023a\tmp\tp834f8ed1_e399_4d0b_aeb6_78b0d8767e4b\step_000000.mat | Net.dt: dt=0.0048649724201094771, ожидается Inf с по текущим Sat/Q.
+
+ЗАВЕРШЕНИЕ: Остановлено пользователем.
+Без прорыва: менисков=1, Move=1: 0, Move=2: 0, Move=3: 1.
+  Net.H(1,1): удержание НЕ подтверждено новым давлением; Q=1.8499591000348304e-06 м³/с, dP=581.54910989600739 Pc=175.46397922417006 Па.
+Остановка административная; неподвижность всех менисков не требуется.
+
+Проверено снимков: 1/1; ERROR: 3; WARNING: 1.
+Есть несоответствия; см. сообщения выше.

@@ -1,0 +1,16 @@
+# MATLAB
+*.asv
+*.autosave
+*.m~
+*.mex*
+*.p
+*.slxc
+*.sldd
+
+# MATLAB temporary files
+*.bak
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db

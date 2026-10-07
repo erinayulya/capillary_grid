@@ -1,0 +1,16 @@
+{
+  "OriginalFileCount": 446,
+  "SourceCurrentFileCount": 446,
+  "MissingTargetFiles": [],
+  "ChangedSourceFiles": [],
+  "OriginalDirectoryCount": 69,
+  "MissingTargetDirectories": [],
+  "AdaptedFiles": [
+    "docs\\architecture.txt",
+    "docs\\functions.txt",
+    "docs\\start.txt",
+    "docs\\variables.txt",
+    "reporting\\writeSimulationReport.m"
+  ],
+  "IdenticalTargetFiles": 441
+}
