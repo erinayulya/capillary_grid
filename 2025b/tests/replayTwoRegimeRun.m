@@ -1,12 +1,21 @@
 function report = replayTwoRegimeRun(sourceDirectory,outputRoot)
 %REPLAYTWOREGIMERUN Проверочный повтор parameters.mat, не точка запуска модели.
 % Читает исходный запуск; создаёт отдельную папку MAT и tests_relults.txt.
-% Меняет в копии параметров только bound=1. Основной main не вызывает/не меняет.
+% Применяет параметры новой физики из main. Основной main не вызывает/не меняет.
 % Не затрагивает base workspace, окна и persistent-сессию simulationReport.
 setupProject;
 data=load(fullfile(sourceDirectory,'parameters.mat'),'parameters');
 parameters=data.parameters;
-parameters.bound=1;
+% Читаем только блок констант main, чтобы проверочный повтор не расходился с ним.
+mainSource=fileread(fullfile(fileparts(fileparts(mfilename('fullpath'))),'main.m'));
+for field={'k','coef','xi','P_crit_width'}
+    name=field{1};
+    token=regexp(mainSource,['Net\.' name '\s*=\s*([0-9.eE+\-]+)\s*;'],'tokens','once');
+    assert(~isempty(token),'Missing constant Net.%s in main.',name);
+    parameters.(name)=str2double(token{1});
+end
+obsolete=intersect(fieldnames(parameters),{'kdyn','bound'});
+if ~isempty(obsolete),parameters=rmfield(parameters,obsolete);end
 N=parameters;
 if nargin<2, outputRoot=fullfile(fileparts(fileparts(mfilename('fullpath'))),'results'); end
 directory=fullfile(outputRoot,['run_' char(datetime('now','Format','yyyyMMdd_HHmmss')) '_two_regime']);

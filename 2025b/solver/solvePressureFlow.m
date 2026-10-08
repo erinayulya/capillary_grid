@@ -10,6 +10,14 @@
 
 function Net = solvePressureFlow(Net)
 
+    % Ошибочные параметры обнаруживаются до сборки/решения системы.
+    for field = {'k','coef','P_crit_width'}
+        validateattributes(Net.(field{1}),{'numeric'}, ...
+            {'scalar','real','finite','positive'},mfilename,field{1});
+    end
+    validateattributes(Net.xi,{'numeric'}, ...
+        {'scalar','real','finite','nonnegative'},mfilename,'xi');
+
     % Подготовка массивов
     nP  = Net.H.Ny*(Net.H.Nx-1);
     nQH = Net.H.Ny*Net.H.Nx;

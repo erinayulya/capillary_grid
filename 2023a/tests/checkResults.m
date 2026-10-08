@@ -67,7 +67,7 @@ fprintf(fid,['Допуски: Q/баланс=%.4g м³/с; P=%.4g Па; Sat=%.4g
     tol.flow,tol.pressure,tol.saturation,tol.time,tol.relative);
 fprintf(fid,['State=0: вода; State=1: мениск; State=2: нефть.\n', ...
     'Проверки 1 и 7 (Regime=0 у неподвижных) — дополнительные требования.\n', ...
-    'MAT с flowLaw=twoRegimeCurrentPressure: Move/Regime/Q проверяются по решённому P.\n', ...
+    'MAT с flowLaw: Move/Regime/Q проверяются по решённому P и версии уравнений.\n', ...
     'Старые MAT без метки: выбор Move проверяется по прежнему P до решения.\n', ...
     'Dir сравнивается со знаком Q только при State=1 и |Q|>допуска.\n', ...
     'Move=2: защемление, а не обязательно недостаток давления.\n', ...
@@ -243,7 +243,13 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
     end
 
     function compareConstants(A,B)
-        for field = {'mu1','mu2','L','sigma','theta','kdyn','bound','VerticalBC'}
+        fields = {'mu1','mu2','L','sigma','theta','VerticalBC'};
+        if isfield(B,'k')
+            fields = [fields,{'k','coef','xi','P_crit_width'}];
+        else
+            fields = [fields,{'kdyn','bound'}];
+        end
+        for field = fields
             f = field{1};
             assert(isfield(A,f),'Previous parameters missing %s.',f);
             assert(isequaln(A.(f),B.(f)),'Parameter Net.%s changed; transition cannot be checked.',f);
@@ -345,6 +351,10 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
 
     function checkCurrentLaw(N,C)
         % Независимая проверка явного расхода, без вызова capillaryEquation.
+        if isfield(N,'k')
+            checkSmoothLaw(N,C);
+            return
+        end
         mu = N.mu1;
         if N.theta >= pi/2, mu = N.mu2; end
         for e = find(C.State==1 & ~C.closed)'
@@ -380,6 +390,41 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
             if C.Regime(e)~=expectedRegime && ...
                     ~(nearBoundary && ismember(C.Regime(e),[1,3]))
                 issue('ERROR','7',edgeName(C,e),'Regime=%g, ожидается %g по текущему P.',C.Regime(e),expectedRegime);
+            end
+        end
+    end
+
+    function checkSmoothLaw(N,C)
+        mu = N.mu1;
+        if N.theta>=pi/2, mu = N.mu2; end
+        for e = find(C.State==1 & ~C.closed)'
+            expectedFlow=0; expectedRegime=0; expectedMove=3;
+            critical=N.coef*(sqrt(C.A(e)/pi))^(-5/4);
+            if C.Move(e)==2
+                expectedMove=2;
+            elseif C.dP(e)>0
+                expectedMove=1;
+                expectedRegime=1+2*(C.dP(e)>critical);
+                r=sqrt(C.A(e)/pi);
+                a=8*N.L/r^2*(N.mu1*(1-C.Sat(e))+N.mu2*C.Sat(e)) ...
+                    +N.xi*(N.mu1+N.mu2)/r;
+                b=2*N.k*N.sigma/r*sin(N.theta)*(mu/N.sigma)^(1/3);
+                t=max(0,min(1,(C.dP(e)-critical)/N.P_crit_width+0.5));
+                weight=6*t^5-15*t^4+10*t^3;
+                expectedFlow=C.A(e)*((1-weight)*(C.dP(e)/b)^3+weight*C.dP(e)/a);
+            end
+            if abs(C.Dir(e)*C.Q(e)-expectedFlow)>=tol.flow
+                issue('ERROR','FLOW',edgeName(C,e), ...
+                    'Dir*Q=%.17g, ожидается %.17g м³/с по новой модели.', ...
+                    C.Dir(e)*C.Q(e),expectedFlow);
+            end
+            if C.Move(e)~=expectedMove && abs(C.dP(e))>tol.pressure
+                issue('ERROR','6/7',edgeName(C,e),'Move=%g, ожидается %g.',C.Move(e),expectedMove);
+            end
+            nearBoundary=abs(C.dP(e)-critical)<=tol.pressure;
+            if C.Regime(e)~=expectedRegime && ...
+                    ~(expectedMove==1 && nearBoundary && ismember(C.Regime(e),[1,3]))
+                issue('ERROR','7',edgeName(C,e),'Regime=%g, ожидается %g.',C.Regime(e),expectedRegime);
             end
         end
     end
@@ -478,14 +523,22 @@ end
 
 function requireNet(N)
 assert(isstruct(N) && isscalar(N),'Net must be a scalar struct.');
-for field = {'mu1','mu2','L','sigma','theta','kdyn','bound','VerticalBC','dt','P','H','V'}
+for field = {'mu1','mu2','L','sigma','theta','VerticalBC','dt','P','H','V'}
     assert(isfield(N,field{1}),'Net missing %s.',field{1});
 end
-for field = {'mu1','mu2','L','sigma','bound'}
+fields={'mu1','mu2','L','sigma'};
+if isfield(N,'k')
+    fields=[fields,{'k','coef','P_crit_width'}];
+    validateattributes(N.xi,{'numeric'},{'scalar','real','finite','nonnegative'});
+    assert(N.theta>0 && N.theta<pi,'New meniscus law requires 0<theta<pi.');
+else
+    fields=[fields,{'bound'}];
+    validateattributes(N.kdyn,{'numeric'},{'scalar','real','finite','nonnegative'});
+end
+for field = fields
     validateattributes(N.(field{1}),{'numeric'},{'scalar','real','finite','positive'});
 end
 validateattributes(N.theta,{'numeric'},{'scalar','real','finite','>=',0,'<=',pi});
-validateattributes(N.kdyn,{'numeric'},{'scalar','real','finite','nonnegative'});
 validateattributes(N.VerticalBC,{'logical','numeric'},{'scalar','real','finite'});
 assert(ismember(N.VerticalBC,[0,1]),'VerticalBC must be logical.');
 validateattributes(N.dt,{'numeric'},{'scalar','real','positive','nonnan'});
@@ -534,7 +587,12 @@ C.leftH=[ch(:)==1;false(numel(N.V.A),1)];
 deltaH=[N.H.P0*ones(N.H.Ny,1),N.P]-[N.P,zeros(N.H.Ny,1)];
 deltaV=[N.V.P0*ones(1,N.V.Nx);N.P]-[N.P;zeros(1,N.V.Nx)];
 C.dP=C.Dir.*[deltaH(:);deltaV(:)];
-C.Pc=2*N.sigma*cos(N.theta)./sqrt(C.A/pi);
+% Pc здесь — порог остановки Move, не давление переключения режимов.
+if isfield(N,'k')
+    C.Pc=zeros(size(C.A));
+else
+    C.Pc=2*N.sigma*cos(N.theta)./sqrt(C.A/pi);
+end
 end
 
 function name = edgeName(C,e)
@@ -589,5 +647,5 @@ end
 
 function yes = isCurrentLaw(sample)
 yes = isfield(sample,'flowLaw') && ...
-    strcmp(sample.flowLaw,'twoRegimeCurrentPressure');
+    ismember(sample.flowLaw,{'twoRegimeCurrentPressure','smoothMeniscusAppliedPressure'});
 end

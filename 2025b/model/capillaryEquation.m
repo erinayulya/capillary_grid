@@ -1,130 +1,72 @@
-%% Выбор зависимости Q=f(dp) в капилляре
-%
-% Функция определяет вид уравнения Q=f(dp) по state, move и текущему dp
-% капилляра и возвращает для заданного приближения dp и q:
-% f - невязку уравнения
-% dfdp - производную уравнения по давлению
-% dfdq - производную уравнения по расходу.
-%
-% В функции реализовано несколько вариантов уравнений:
-% (1) Пуазейль, если капилляр заполнен одной фазой
-% (2) Нет течения, если мениск в капилляре заблокирован
-% (3) 2 режима течения с мениском:
-% - капиллярное плато
-% - переходной режим закомментирован (сохранён ниже)
-% - вязкое течение
-
 function [f,dfdp,dfdq,regime,move] = capillaryEquation(...
     Net,dp,q,A,S,state,regime,move)
-    % Для мениска dp [Па] и q [м3/с] ориентированы по Dir.
-    % Входной regime сохранён для совместимости; выбирается заново по dp.
-    % Выходные regime/move описывают ветвь именно этого приближения.
-    % Все активные невязки f имеют единицы м3/с, dfdq=1.
+%CAPILLARYEQUATION Расход и точная производная новой модели одного мениска.
+% dp [Па] и q [м3/с] ориентированы по Dir; v=q/A [м/с].
+% Перепад приложен на концах: статическое капиллярное давление не вычитается.
+% Regime=1/3 отмечает сторону P_crit, но не переключает формулу в полосе.
+% Входной regime не используется: ветвь определяется текущим пробным dp.
+% f=q-Q(dp) [м3/с], dfdp [м3/(с*Па)], dfdq=1.
     regime = 0;
-    
-    %%-------------------------------------------------------
-    %% Одна фаза, нет мениска
-    %%-------------------------------------------------------
+    dfdq = 1;
+
     if state==0 || state==2
         move = 0;
-        if state==0 % только вода
-            mu = Net.mu1;
-        else % только нефть
-            mu = Net.mu2;
-        end
+        mu = Net.mu1;
+        if state==2, mu = Net.mu2; end
         R = 8*pi*mu*Net.L/A^2;
         f = q-dp/R;
         dfdp = -1/R;
-        dfdq = 1;
         return
     end
-
-    %%-------------------------------------------------------
-    %% Две фазы, мениск
-    %%-------------------------------------------------------
-    %% Неподвижный мениск
-    % move = 2: мениск защемлен из-за потери связности по воде;
-    % move = 3: мениск временно удерживается капиллярным порогом.
-    % Только защемление фиксировано. Move=1/3 уточняется по текущему dp.
-    if state==1 && move==2
-        f=q;
-        dfdp=0;
-        dfdq=1;
+    if state~=1 || ~ismember(move,[1,2,3])
+        error('capillaryEquation:InvalidState', ...
+            'Мениск требует State=1 и Move=1, 2 или 3.');
+    end
+    if move==2
+        f = q;
+        dfdp = 0;
         return
     end
-
-    if state==1 && ~ismember(move,[1,3])
-        error('Для капилляра с мениском Move должен быть равен 1, 2 или 3.')
-    end
-
-    %% Подвижный мениск
-    % Подготовка параметров
-    r = sqrt(A/pi);
-    Pc = 2*Net.sigma*cos(Net.theta)/r;
-    dpStar = max(dp-Pc,0); % Обратное продвижение не допускается.
-    if dpStar == 0
+    if dp<=0
+        % Обратное продвижение не допускается; положительного порога нет.
         move = 3;
         f = q;
         dfdp = 0;
-        dfdq = 1;
         return
     end
     move = 1;
-    l2 = S*Net.L;
-    l1 = Net.L-l2;
-    if Net.theta < pi/2
-        muSm = Net.mu1;
-    else
-        muSm = Net.mu2;
+    r = sqrt(A/pi);
+    muSm = Net.mu1;
+    if Net.theta>=pi/2, muSm = Net.mu2; end
+    A_class = 8*Net.L/r^2*(Net.mu1*(1-S)+Net.mu2*S);
+    A_add = Net.xi*(Net.mu1+Net.mu2)/r;
+    Aeff = A_class+A_add;
+    B = 2*Net.k*Net.sigma/r*sin(Net.theta)*(muSm/Net.sigma)^(1/3);
+    if ~(Net.theta>0 && Net.theta<pi && isfinite(B) && B>0)
+        error('capillaryEquation:InvalidPlateauCoefficient', ...
+            'Для плато требуется 0<theta<pi и конечный B>0.');
     end
-    k = Net.kdyn;
-    Aeff = ...
-        8/r^2*(Net.mu1*l1+Net.mu2*l2) ...
-        -2*k^3/(3*r)*muSm*sin(Net.theta);
-    B = ...
-        2*k*Net.sigma*sin(Net.theta)/r ...
-        *(muSm/Net.sigma)^(1/3);
-    
-    % При Aeff>0 две асимптотики пересекаются при dp*=sqrt(B^3/Aeff).
-    % Это Pi=PiCrit (бывший Net.bound=1). На границе выбирается плато.
-    % Aeff<=0: как прежде, только плато.
-    if Aeff <= 0 || dpStar <= sqrt(B^3/Aeff)
-        regime = 1;
-    else
-        regime = 3;
-    end
-    % Выбор ветви внутри одного решения сети, не по старому Net.Regime.
-    switch regime
-        case 1 % Капиллярное плато
-            c = pi*r^2;
-            f = q-c*(dpStar/B)^3;
-            dfdp = -3*c*dpStar^2/B^3;
-            dfdq = 1;
-    
-        % case 2 % Полная модель (отключена по согласованию)
-        %     v = q/A;
-        %     v13 = realCubeRoot(v);
-        %     f = dpStar-Aeff*v-B*v13;
-        %     dfdp = 1;
-        %     if abs(v)<1e-14
-        %         vreg = 1e-14;
-        %     else
-        %         vreg = v;
-        %     end
-        %     dfdq = ...
-        %         -Aeff/A ...
-        %         -B/(3*A*abs(vreg)^(2/3));
-    
-        case 3
-             % Вязкое вытеснение
-             % То же уравнение, выраженное в м3/с для общего масштаба.
-             f = q-A*dpStar/Aeff;
-             dfdp = -A/Aeff;
-             dfdq = 1;
-    end
-end
+    P_crit = Net.coef*r^(-5/4);
+    width = Net.P_crit_width; % Полная ширина, не полуширина.
+    regime = 1;
+    if dp>P_crit, regime = 3; end
 
-% Вспомогательная функция отключённого переходного режима:
-% function y = realCubeRoot(x)
-%     y = sign(x)*abs(x)^(1/3);
-% end
+    if dp<=P_crit-width/2
+        v = (dp/B)^3;
+        dvdp = 3*dp^2/B^3;
+    elseif dp>=P_crit+width/2
+        v = dp/Aeff;
+        dvdp = 1/Aeff;
+    else
+        t = (dp-P_crit+width/2)/width;
+        w = t^3*(10+t*(-15+6*t));
+        dwdp = 30*t^2*(1-t)^2/width;
+        vPlateau = (dp/B)^3;
+        vViscous = dp/Aeff;
+        v = (1-w)*vPlateau+w*vViscous;
+        dvdp = (1-w)*3*dp^2/B^3+w/Aeff ...
+            +dwdp*(vViscous-vPlateau);
+    end
+    f = q-A*v;
+    dfdp = -A*dvdp;
+end

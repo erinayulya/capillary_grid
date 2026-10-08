@@ -304,8 +304,10 @@ legendLabels{end+1} = ' ';
 
 if move
     colors = [.8 .8 .8; 0 .6 0; 1 0 0; 1 .8 0];
+    heldLabel = sprintf('Мениск временно неподвижен\n(dP <= 0)');
+    if ~isfield(Net,'k'), heldLabel = sprintf('Мениск временно неподвижен\n(Pc >= dP)'); end
     labels = {'Нет мениска', 'Мениск подвижен', 'Мениск заблокирован', ...
-        sprintf('Мениск временно неподвижен\n(Pc >= dP)')};
+        heldLabel};
     for markerIndex = 1:4
         legendHandles(end+1) = plot(targetAxes,NaN,NaN,'o', ...
             'LineStyle','none','MarkerSize',5, ...

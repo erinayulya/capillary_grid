@@ -17,22 +17,35 @@ if ~exist('Net', 'var')
 
     %% ----------- Площади капилляров ------------
 
-    coef = pi*(100e-6)^2;
-    Net.H.A = coef*[... % Площади горизонтальных капилляров, м2
+    areaScale = pi*(100e-6)^2; % Диаметры сети: 0.2–0.447 мм
+    Net.H.A = areaScale*[... % Площади горизонтальных капилляров, м2
         1 1 1 1;
         1 2 1 1;
         1 1 1 1];
 
-    Net.V.A = coef*[... % Площади вертикальных капилляров, м2
+    Net.V.A = areaScale*[... % Площади вертикальных капилляров, м2
         1 1 1;
         1 1 1;
         1 5 1;
         1 1 1];
 end
 
-Net.kdyn = 2;
-Net.bound = 1; % Плато и вязкий режим соединяются при Pi=PiCrit.
+% Параметры новой физики задаются только здесь, в том числе при запуске run.
+Net.k = 3.29015;                   % Безразмерный коэффициент плато
+Net.coef = 6.644123616564944e-4;    % P_crit=coef*r^(-5/4), Па*м^(5/4)
+Net.xi = 30.079341699546497;        % A_add=xi*(mu1+mu2)/r, безразмерный
+Net.P_crit_width = 4;              % Полная ширина переходной зоны, Па
+obsoleteFields = intersect(fieldnames(Net),{'kdyn','bound'});
+if ~isempty(obsoleteFields), Net = rmfield(Net,obsoleteFields); end
 if ~isfield(Net.V,'P0'), Net.V.P0 = 200; end
+
+% Область применимости физики: диаметры 0.1–1 мм включительно.
+diameters = 2*sqrt([Net.H.A(:); Net.V.A(:)]/pi);
+diameterTolerance = 16*eps(1e-3); % Допуск округления на границах, м
+if any(diameters < 0.1e-3-diameterTolerance | diameters > 1e-3+diameterTolerance)
+    warning('capillary_grid:DiameterOutOfRange', ...
+        'Расчет рассчитан для капилляров диаметром от 0.1 до 1 мм');
+end
 
 %% ---------- Размер сети --------------------
 Net.H.Nx = size(Net.H.A, 2);

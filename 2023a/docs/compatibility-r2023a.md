@@ -68,3 +68,10 @@ testCheckResults
 - [exportgraphics: параметры размеров появились в настольной R2025a](https://www.mathworks.com/help/matlab/ref/exportgraphics.html).
 - [uipanel: дополнительные свойства панелей обычного figure в R2025a](https://www.mathworks.com/help/matlab/ref/uipanel.html).
 - [Форматы MAT-файлов и поддерживаемые версии](https://www.mathworks.com/help/matlab/import_export/mat-file-versions.html).
+
+
+## Обновление 08.10.2026: новая физика мениска
+
+Перенесены новые уравнения и четыре параметра main. Общие изменённые MATLAB-файлы идентичны рабочей версии; прежние адаптации PDF сохранены. Проверки выполнены из каждой папки в R2025b: 48 unit-тестов, 39 сценариев валидатора, тесты состояния/хранения, полный main с 10 шагами и 12-страничным PDF. Итоговые Net совпали. Полный протокол — [new-physics-validation.md](new-physics-validation.md). Исторические количества и манифесты выше описывают копирование 07.10.2026, а не актуальный объём файлов после этого обновления.
+
+Для проверок входных параметров используется [validateattributes, R2023a](https://www.mathworks.com/help/releases/R2023a/matlab/ref/validateattributes.html), включая funcName/varName и ограничения positive/nonnegative/finite. Новые формулы используют базовые скалярные операции MATLAB. R2023a не установлена; выполнение именно в ней по-прежнему не подтверждено.

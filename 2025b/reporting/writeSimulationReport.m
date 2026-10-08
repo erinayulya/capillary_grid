@@ -33,6 +33,7 @@ else
 end
 label(canvas,40,226,computeText,11,true);
 if Net.VerticalBC, boundary = 'открыты'; else, boundary = 'закрыты'; end
+physicsLines = modelParameterLines(Net);
 lines = {
     sprintf('Давление на левой границе, Net.H.P0: %.12g Па',Net.H.P0)
     sprintf('Давление на верхней границе, Net.V.P0: %.12g Па',Net.V.P0)
@@ -43,20 +44,22 @@ lines = {
     sprintf('Длина капилляра, Net.L: %.12g м',Net.L)
     sprintf('Поверхностное натяжение, Net.sigma: %.12g Н/м',Net.sigma)
     sprintf('Угол смачивания, Net.theta: %.12g рад',Net.theta)
-    sprintf('Коэффициент динамической модели, Net.kdyn: %.12g',Net.kdyn)
-    sprintf('Множитель границ режимов, Net.bound: %.12g',Net.bound)
+    physicsLines{1}
+    physicsLines{2}
     sprintf('Внутренние узлы: %d строк x %d столбцов',Net.H.Ny,Net.H.Nx-1)
     'Начальное состояние сохранено в parameters.mat; шаг 0 показан отдельно.'
     'Время вычислений не включает запись MAT, построение PDF, графики и диалоги.'};
 for k=1:numel(lines), label(canvas,40,255+29*(k-1),lines{k},11,false); end
 [PcH,PcV] = capillaryPressures(Net);
+pressureName = 'p_c';
+if isfield(Net,'k'), pressureName = 'P_crit'; end
 drawTable(canvas,Net.H.A,'Net.H.A - площади горизонтальных капилляров, м²', ...
     40,700,width-80,'%.6g');
 drawTable(canvas,Net.V.A,'Net.V.A - площади вертикальных капилляров, м²', ...
     40,710+tableHeight,width-80,'%.6g');
-drawTable(canvas,PcH,'p_c горизонтальных капилляров, Па', ...
+drawTable(canvas,PcH,[pressureName ' горизонтальных капилляров, Па'], ...
     40,720+2*tableHeight,width-80,'%.6g');
-drawTable(canvas,PcV,'p_c вертикальных капилляров, Па', ...
+drawTable(canvas,PcV,[pressureName ' вертикальных капилляров, Па'], ...
     40,730+3*tableHeight,width-80,'%.6g');
 label(canvas,40,height-42, ...
     'Таблицы: 6 значащих цифр. Полная точность сохранена в MAT-файлах.',10,false);
@@ -138,11 +141,11 @@ for k = order
     [marginH,marginV] = movePressureMargin(Net);
     marginY = moveY + tableHeight + 38;
     label(canvas,40,marginY+22, ...
-        'Разность между перепадом давления на концах капилляра и капиллярным давлением, Па', ...
+        ['Ориентированный перепад минус ' pressureName ' (положение относительно границы режимов), Па'], ...
         10,true);
-    drawTable(canvas,marginH,'Net.H: Δp − p_c, Па', ...
+    drawTable(canvas,marginH,['Net.H: Δp − ' pressureName ', Па'], ...
         40,marginY+38,width/2-60,'%.6g');
-    drawTable(canvas,marginV,'Net.V: Δp − p_c, Па', ...
+    drawTable(canvas,marginV,['Net.V: Δp − ' pressureName ', Па'], ...
         40+width/2,marginY+38,width/2-60,'%.6g');
     label(canvas,40,height-20,sprintf('Страница %d | Индексы строк и столбцов соответствуют MATLAB.', ...
         snapshot.step+2),9,false);
@@ -210,8 +213,26 @@ end
 end
 
 function [PcH,PcV] = capillaryPressures(Net)
-PcH = 2*Net.sigma*cos(Net.theta)./sqrt(Net.H.A/pi);
-PcV = 2*Net.sigma*cos(Net.theta)./sqrt(Net.V.A/pi);
+if isfield(Net,'k')
+    PcH = Net.coef*sqrt(Net.H.A/pi).^(-5/4);
+    PcV = Net.coef*sqrt(Net.V.A/pi).^(-5/4);
+else
+    % Чтение исторических отчётов без переинтерпретации параметров.
+    PcH = 2*Net.sigma*cos(Net.theta)./sqrt(Net.H.A/pi);
+    PcV = 2*Net.sigma*cos(Net.theta)./sqrt(Net.V.A/pi);
+end
+end
+
+function lines = modelParameterLines(Net)
+if isfield(Net,'k')
+    lines = {
+        sprintf('Коэффициент плато k: %.12g; xi: %.12g',Net.k,Net.xi)
+        sprintf('P_crit: coef=%.12g Па·м^(5/4); ширина=%.12g Па',Net.coef,Net.P_crit_width)};
+else
+    lines = {
+        sprintf('Исторический коэффициент kdyn: %.12g',Net.kdyn)
+        sprintf('Исторический множитель bound: %.12g',Net.bound)};
+end
 end
 
 function [marginH,marginV] = movePressureMargin(Net)
