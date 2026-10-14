@@ -31,10 +31,10 @@ if ~exist('Net', 'var')
 end
 
 % Параметры новой физики задаются только здесь, в том числе при запуске run.
-Net.k = 3.29015;                   % Безразмерный коэффициент плато
-Net.coef = 6.644123616564944e-4;    % P_crit=coef*r^(-5/4), Па*м^(5/4)
+Net.k = 1.38;                       % Безразмерный коэффициент плато
+Net.coef = 6.644123616564944e-4;    % P_crit=coef*r^(-3/2), Па*м^(3/2)
 Net.xi = 30.079341699546497;        % A_add=xi*(mu1+mu2)/r, безразмерный
-Net.P_crit_width = 4;              % Полная ширина переходной зоны, Па
+Net.P_crit_width = 4;               % Полная ширина переходной зоны, Па
 obsoleteFields = intersect(fieldnames(Net),{'kdyn','bound'});
 if ~isempty(obsoleteFields), Net = rmfield(Net,obsoleteFields); end
 if ~isfield(Net.V,'P0'), Net.V.P0 = 200; end

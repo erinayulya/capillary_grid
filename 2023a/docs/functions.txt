@@ -1,5 +1,5 @@
 СПРАВОЧНИК ФУНКЦИЙ
-Дата сверки: 08.10.2026. Пути рабочих файлов приведены ниже.
+Дата сверки: 14.10.2026 (расчёт шага и синхронизация). Пути рабочих файлов приведены ниже.
 Локальные функции перечислены рядом с основной.
 
 main.m — скрипт, не функция.
@@ -10,7 +10,7 @@ main.m — скрипт, не функция.
   Цикл непосредственно в main: calcSaturation -> calcState -> calcCanMove
   -> solvePressureFlow -> calcTimeStep.
   Параметры жидкости/геометрии сохранены (в том числе H.P0=1500 Па).
-  Только в main задаются Net.k=3.29015, Net.coef=6.644123616564944e-4,
+  Только в main задаются Net.k=1.38, Net.coef=6.644123616564944e-4,
   Net.xi=30.079341699546497 и Net.P_crit_width=4 Па (полная ширина).
   Старые kdyn/bound удаляются из входного Net; run этих полей не задаёт.
   Перед расчётом main непосредственно проверяет диаметры всех H/V
@@ -99,7 +99,7 @@ model/capillaryEquation.m:
   Aeff=A_class+A_add, Па*с/м. Старая отрицательная поправка удалена.
   B=2*k*sigma*sin(theta)/r*(muSm/sigma)^(1/3);
   muSm=mu1 при theta<pi/2, иначе mu2. Требуется 0<theta<pi, B>0.
-  P_crit=coef*r^(-5/4); h=P_crit_width/2. Ниже P_crit-h v=(dp/B)^3,
+  P_crit=coef*r^(-3/2); h=P_crit_width/2. Ниже P_crit-h v=(dp/B)^3,
   выше P_crit+h v=dp/Aeff. Внутри t=(dp-P_crit+h)/P_crit_width,
   w=6*t^5-15*t^4+10*t^3; v=(1-w)*vPlateau+w*vViscous.
   dv/dp=(1-w)*3*dp^2/B^3+w/Aeff+w'*(vViscous-vPlateau),
@@ -126,9 +126,15 @@ model/calcWaterConnectivity.m:
   Net не изменяет.
 
 model/calcTimeStep.m: Net = calcTimeStep(Net)
-  Вычисляет Net.dt как минимальное время до заполнения подвижного капилляра.
-  calcTimeStepEval(Cap,Net): минимизирует (1-S)*L/(abs(Q)/A)
-  среди State=1, Move=1, S<1-1e-12; при отсутствии кандидата возвращает Inf.
+  Net.dt — минимум аналитических вязких оценок до заполнения, с, во всех режимах.
+  Читает P, H/V.P0, Dir, A, Sat, State, Move, размеры, L, mu1, mu2, xi.
+  calcTimeStepEval(Cap,Net,dp): p=Dir*dp; r=sqrt(A/pi);
+  Aadd=xi*(mu1+mu2)/r; t=L*(1-S)/p*
+  (4*L/r^2*(mu1*(1-S)+mu2*(1+S))+Aadd).
+  Кандидаты: State=1, Move=1, S<1-1e-12, p>0; без них возвращает Inf.
+  Q и Regime не использует; Pc не вычитает. Меняет только Net.dt.
+  Это оценка шага при фиксированном локальном p, не время фактического события:
+  calcSaturation сохраняет прежнее линейное продвижение по фактическому Q.
   Предупреждение при Inf выдаётся, если вообще нет Move=1.
 
 model/calcSaturation.m: Net = calcSaturation(Net)
@@ -253,7 +259,7 @@ reporting/writeSimulationReport.m: pdfPath = writeSimulationReport(directory)
   Первый лист содержит параметры и итог, затем шаг 0 и по листу на шаг:
   выполненный dt, накопленное модельное время, следующий solvedNet.dt, рисунок и 16 матриц.
   На первом листе также выводит постоянные по симуляции матрицы капиллярного
-  давления P_crit=coef*r^(-5/4) для H и V, Па. Таблица Net.P занимает ширину колонки H
+  давления P_crit=coef*r^(-3/2) для H и V, Па. Таблица Net.P занимает ширину колонки H
   с теми же отступами и шириной width/2-60, что H.Q;
   рисунок и узкая легенда справа от него — единым блоком над колонкой V.
   Легенда: одна колонка, шрифт 7 pt, длинные подписи разбиты на строки.
@@ -270,12 +276,14 @@ reporting/writeSimulationReport.m: pdfPath = writeSimulationReport(directory)
   и накопленное время вычислений (секунды). Старые MAT без замеров поддерживаются:
   вместо чисел выводится «не измерялось».
   Размер листов увеличивается под размер матриц с сохранением книжных пропорций.
-  exportPage(fig,pdfPath,width,height,append): фиксирует размер в пунктах PDF
-  (0.75*width+3.5, 0.75*height+3.5); для 3x3 узлов — 806x1106 pt.
+  exportPage(fig,pdfPath,width,height,append): экспортирует панель размером
+  0.75*width x 0.75*height пунктов; поля PDF определяет экспортёр R2023a.
   width/height — скалярные размеры макета в пикселях; append — logical.
-  Скрытое окно создаётся с WindowStyle=normal, Resize=off; перед экспортом
-  восстанавливается его размер. exportgraphics получает Width/Height/Units,
-  Padding=0 и PreserveAspectRatio=off (проверено в MATLAB R2025b).
+  Скрытое окно создаётся с WindowStyle=normal, Resize=off; макет размещён
+  на uipanel в пунктах, чтобы ограничения экрана не сжимали страницу.
+  exportgraphics получает только ContentType, Append и BackgroundColor;
+  Width/Height/Units/Padding/PreserveAspectRatio из R2025a не используются.
+  AutoResizeChildren устанавливается только после проверки isprop.
   Легенда имеет отдельное место справа от рисунка; пределы осей сети
   задаются по геометрии с полями 0.3, без растянутой пустой области.
   Числа печатаются с 6 значащими цифрами. MAT хранит полную точность.
@@ -328,7 +336,10 @@ tests/checkResults.m: reports = checkResults(target, options)
     edgeName: ориентация и индексы капилляра для отчёта.
     waterPath: независимый обход Sat==0 от правой/открытой нижней границы,
       затем проверка выхода воды с учётом специальных случаев calcCanMove.
-    nextTime: ожидаемое время следующего заполнения; sameTime: сравнение времени.
+    nextTime(C,N): независимая вязкая оценка dt при наличии xi;
+      для архивной физики без xi сохраняет прежнюю оценку по Q.
+      Старые MAT с xi и прежним dt могут дать TIME: правило шага изменено.
+    sameTime: сравнение времени.
 
 tests/testCheckResults.m: testCheckResults()
   Проверяет сам валидатор на корректных и намеренно повреждённых MAT-наборах.
@@ -337,6 +348,14 @@ tests/testCheckResults.m: testCheckResults()
   Локальные sequence/branchingSequence/verticalReverseSequence/
   horizontalReverseSequence, blankNet, history, snapshot строят исходные данные;
   вложенные checkCase/writeCase/expect сохраняют их и проверяют результаты.
+  viscousSequence: новая вязкая оценка dt и прежнее продвижение по Q;
+  проверяется корректная последовательность и намеренно повреждённый dt.
+
+tests/calcTimeStepTest.m: класс matlab.unittest.TestCase
+  Сверяет аналитический шаг с независимой квадратурой вязкого сопротивления;
+  проверяет частичное заполнение, независимость от Q/Regime, локальные давления
+  и направления H/V, минимум по сети, блокировки, p<=0, порог заполнения,
+  xi=0, неизменность остальных полей Net и прежнее продвижение по Q.
 
 tests/testCalcState.m: testCalcState()
   Минимальная проверка рождения менисков при поздней смене знака Q:

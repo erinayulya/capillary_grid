@@ -211,9 +211,9 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
             'Закрытая вертикальная граница требует Q=0.');
         edges('ERROR','BC',C,C.closed & meniscus & C.Move~=2, ...
             'Мениск на закрытой границе должен иметь Move=2.');
-        expectedDt = nextTime(C,N.L);
+        expectedDt = nextTime(C,N);
         if ~sameTime(N.dt,expectedDt,tol)
-            issue('ERROR','TIME','Net.dt','dt=%.17g, ожидается %.17g с по текущим Sat/Q.',N.dt,expectedDt);
+            issue('ERROR','TIME','Net.dt','dt=%.17g, ожидается %.17g с по правилу шага этой модели.',N.dt,expectedDt);
         end
     end
 
@@ -399,7 +399,7 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
         if N.theta>=pi/2, mu = N.mu2; end
         for e = find(C.State==1 & ~C.closed)'
             expectedFlow=0; expectedRegime=0; expectedMove=3;
-            critical=N.coef*(sqrt(C.A(e)/pi))^(-5/4);
+            critical=N.coef*(sqrt(C.A(e)/pi))^(-3/2);
             if C.Move(e)==2
                 expectedMove=2;
             elseif C.dP(e)>0
@@ -486,7 +486,7 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
             if isfinite(N.dt) && N.dt>0
                 issue('ERROR','11','Net.dt','Заявлена остановка по dt, но dt конечен и положителен.');
             end
-            if N.dt~=Inf || nextTime(C,N.L)~=Inf
+            if N.dt~=Inf || nextTime(C,N)~=Inf
                 issue('ERROR','11','Net.dt','Не подтверждено корректное отсутствие следующего события (ожидался +Inf).');
             end
             edges('ERROR','11',C,m & C.Move==1, ...
@@ -630,10 +630,22 @@ for e = find(C.State==1 & ~C.closed)'
 end
 end
 
-function dt = nextTime(C,L)
+function dt = nextTime(C,N)
+% Новая модель: аналитическая вязкая оценка независимо от Q/Regime.
+if isfield(N,'xi')
+    eligible=C.State==1 & C.Move==1 & C.Sat<1-1e-12 & C.dP>0;
+    r=sqrt(C.A(eligible)/pi); S=C.Sat(eligible);
+    % Интеграл линейного сопротивления = длина * среднее концов.
+    start=8*N.L./r.^2.*(N.mu1*(1-S)+N.mu2*S);
+    finish=8*N.L*N.mu2./r.^2;
+    extra=N.xi*(N.mu1+N.mu2)./r;
+    dt=min([Inf; N.L*(1-S)./C.dP(eligible).*((start+finish)/2+extra)]);
+    return
+end
+% Архивные MAT без xi сохраняют прежнее правило по расходу.
 eligible=C.State==1 & C.Move==1 & C.Sat<1-1e-12 & C.Q~=0;
 if any(eligible)
-    dt=min((1-C.Sat(eligible))*L./(abs(C.Q(eligible))./C.A(eligible)));
+    dt=min((1-C.Sat(eligible))*N.L./(abs(C.Q(eligible))./C.A(eligible)));
 else
     dt=Inf;
 end

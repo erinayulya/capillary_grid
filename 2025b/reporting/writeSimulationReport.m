@@ -214,8 +214,8 @@ end
 
 function [PcH,PcV] = capillaryPressures(Net)
 if isfield(Net,'k')
-    PcH = Net.coef*sqrt(Net.H.A/pi).^(-5/4);
-    PcV = Net.coef*sqrt(Net.V.A/pi).^(-5/4);
+    PcH = Net.coef*sqrt(Net.H.A/pi).^(-3/2);
+    PcV = Net.coef*sqrt(Net.V.A/pi).^(-3/2);
 else
     % Чтение исторических отчётов без переинтерпретации параметров.
     PcH = 2*Net.sigma*cos(Net.theta)./sqrt(Net.H.A/pi);
@@ -227,7 +227,7 @@ function lines = modelParameterLines(Net)
 if isfield(Net,'k')
     lines = {
         sprintf('Коэффициент плато k: %.12g; xi: %.12g',Net.k,Net.xi)
-        sprintf('P_crit: coef=%.12g Па·м^(5/4); ширина=%.12g Па',Net.coef,Net.P_crit_width)};
+        sprintf('P_crit: coef=%.12g Па·м^(3/2); ширина=%.12g Па',Net.coef,Net.P_crit_width)};
 else
     lines = {
         sprintf('Исторический коэффициент kdyn: %.12g',Net.kdyn)

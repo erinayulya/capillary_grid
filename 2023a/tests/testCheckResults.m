@@ -83,6 +83,12 @@ checkCase('branching',branchingSequence(),'Остановка: достигну�
 checkCase('vertical_reverse',verticalReverseSequence(),'Остановка: достигнут лимит 1 шагов.','',true);
 checkCase('horizontal_reverse',horizontalReverseSequence(),'Вторая фаза достигла правой границы.','',true);
 
+% Новая вязкая оценка dt; продвижение остаётся по прежним Q.
+current=viscousSequence();
+checkCase('viscous_dt',current,'Остановка: достигнут лимит 1 шагов.','',true);
+samples=current; samples{1}.Net.dt=2*samples{1}.Net.dt;
+checkCase('wrong_viscous_dt',samples,'Остановка: достигнут лимит 1 шагов.','[ERROR][TIME]',false);
+
 % Повреждённый MAT и отсутствующий шаг не должны давать all correct.
 folder=writeCase('gap',base,'Вторая фаза достигла правой границы.');
 delete(fullfile(folder,'step_000001.mat'));
@@ -124,6 +130,22 @@ fprintf('testCheckResults: %d cases passed. Fixtures: %s\n',count,suite);
         if correct, assert(endsWith(strtrim(text),'all correct')); end
         count=count+1;
     end
+end
+
+function samples=viscousSequence()
+N=blankNet(1,1); N=rmfield(N,{'kdyn','bound'});
+N.k=1.38; N.coef=1e-6; N.xi=30; N.P_crit_width=4;
+N.H.P0=1500;
+N.H.State(1)=1; N.H.Move(1)=1; N.H.Dir(1)=1;
+N=calcTimeStep(solvePressureFlow(N));
+samples={snapshot(N,0,0,0)};
+O=N; dt=O.dt; N=history(N,O);
+N=calcSaturation(N); N=calcState(N); N=calcCanMove(N);
+N=calcTimeStep(solvePressureFlow(N));
+samples{2}=snapshot(N,1,dt,dt);
+for index=1:numel(samples)
+    samples{index}.flowLaw='smoothMeniscusAppliedPressure';
+end
 end
 
 function samples=sequence()
