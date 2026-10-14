@@ -15,8 +15,8 @@ function Net = calcTimeStep(Net)
     
     Net.dt = min(tminH, tminV);
 
-    % Если dt = Inf
-    if isinf(Net.dt)
+    % Предупреждение об остановке нужно только до достижения выхода.
+    if isinf(Net.dt) && ~any(Net.H.State(:,end)==2)
         hasMovingH = any(Net.H.Move(:) == 1);
         hasMovingV = any(Net.V.Move(:) == 1);
         if ~hasMovingH && ~hasMovingV
