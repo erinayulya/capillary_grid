@@ -1,5 +1,5 @@
 СПРАВОЧНИК ФУНКЦИЙ
-Дата сверки: 14.10.2026 (расчёт шага и синхронизация). Пути рабочих файлов приведены ниже.
+Дата сверки: 14.10.2026 (расчёт шага, запуск и выборка отчёта). Пути рабочих файлов приведены ниже.
 Локальные функции перечислены рядом с основной.
 
 main.m — скрипт, не функция.
@@ -10,7 +10,7 @@ main.m — скрипт, не функция.
   Цикл непосредственно в main: calcSaturation -> calcState -> calcCanMove
   -> solvePressureFlow -> calcTimeStep.
   Параметры жидкости/геометрии сохранены (в том числе H.P0=1500 Па).
-  Только в main задаются Net.k=1.38, Net.coef=6.644123616564944e-4,
+  Только в main задаются Net.k=3.29015, Net.coef=6.644123616564944e-4,
   Net.xi=30.079341699546497 и Net.P_crit_width=4 Па (полная ширина).
   Старые kdyn/bound удаляются из входного Net; run этих полей не задаёт.
   Перед расчётом main непосредственно проверяет диаметры всех H/V
@@ -28,7 +28,7 @@ main.m — скрипт, не функция.
   Вызовы simulationReport обслуживают запуск, два места сохранения
   решения, продолжение, завершение и ошибку. main сам проверяет
   прорыв, выполняет while и break, копирует *_prev и вызывает функции модели.
-  runRecordResults=true включает MAT/PDF без диалогов; false или отсутствие
+  runRecordResults=true включает запись всех MAT без диалогов и без PDF; false или отсутствие
   переменной — пошаговый режим с графиками. Флаг копируется в recordResults
   и удаляется до start и первого решения.
   simulationResult получает итоговую структуру из действия finish.
@@ -54,9 +54,11 @@ run.m: run()
   [Ah,Av,ok] = getGeometry(): читает геометрию из элементов интерфейса,
     проверяет допустимость значений и согласованность размеров матриц.
   previewNetwork(~,~): проверяет размеры и вызывает plotNetwork.
-  startMain(saveResults): проверяет параметры, собирает Net, передаёт
+  startMain(generateReport): проверяет параметры, собирает Net, передаёт
   одноразовый переключатель runRecordResults и запускает main.
-  «Запустить по шагам» передаёт false; «Запустить и сохранить результаты» - true.
+  Обе кнопки передают runRecordResults=true. «Запустить» не создаёт PDF;
+  «Запустить и сформировать отчет» после main вызывает showSimulationReportDialog.
+  generateReport — локальный logical, управляющий только открытием окна отчёта.
   main сохраняет переданный Net и дополняет параметры и начальные состояния.
 
 solver/solvePressureFlow.m: Net = solvePressureFlow(Net)
@@ -99,7 +101,7 @@ model/capillaryEquation.m:
   Aeff=A_class+A_add, Па*с/м. Старая отрицательная поправка удалена.
   B=2*k*sigma*sin(theta)/r*(muSm/sigma)^(1/3);
   muSm=mu1 при theta<pi/2, иначе mu2. Требуется 0<theta<pi, B>0.
-  P_crit=coef*r^(-3/2); h=P_crit_width/2. Ниже P_crit-h v=(dp/B)^3,
+  P_crit=coef*r^(-5/4); h=P_crit_width/2. Ниже P_crit-h v=(dp/B)^3,
   выше P_crit+h v=dp/Aeff. Внутри t=(dp-P_crit+h)/P_crit_width,
   w=6*t^5-15*t^4+10*t^3; v=(1-w)*vPlateau+w*vViscous.
   dv/dp=(1-w)*3*dp^2/B^3+w/Aeff+w'*(vViscous-vPlateau),
@@ -212,17 +214,17 @@ reporting/simulationReport.m:
   next: возвращает 'Продолжить'/'Стоп', показывает прежний диалог в пошаговом
   режиме; в режиме записи отвечает автоматически (стоп при плохом dt/лимите).
   При продолжении запоминает dtUsed=Net.dt и запускает таймер до возврата в main.
-  finish: уточняет причину остановки, записывает итог, собирает PDF, возвращает
+  finish: уточняет причину остановки, записывает итог без PDF, возвращает
   result, выводит причину остановки и освобождает сессию.
   fail: options — исходный MException. При активном таймере учитывает время
   неудачного вычисления; возвращает result и lastNet (до снимка 0 — parameters).
-  В режиме записи сохраняет причину ошибки и частичный PDF по завершённым
-  снимкам, включая титульный PDF, если снимков нет. При ошибке записи отчёта
-  предупреждает simulationReport:PartialReportFailed; main повторно выбрасывает
+  В режиме записи сохраняет причину ошибки и итог по завершённым снимкам,
+  без автоматического PDF. При ошибке записи итогового MAT
+  предупреждает simulationReport:PartialResultsFailed; main повторно выбрасывает
   исходную ошибку расчёта. Неудачный шаг не увеличивает steps/totalTime.
   Во всех остальных действиях restoredNet равен входному Net.
   Вызывает measureComputeTime, saveSimulationStep,
-  writeSimulationReport и drawNetwork. Без start: simulationReport:NotStarted;
+  drawNetwork. Без start: simulationReport:NotStarted;
   неверное действие: simulationReport:UnknownAction.
   saveSummary(session,Net): пишет result, parameters и последний принятый Net.
   До finish/fail статус в checkpoint-summary — 'Расчёт не завершён.'.
@@ -255,12 +257,14 @@ reporting/saveSimulationStep.m:
   Все времена — скалярные секунды; step — скалярный номер снимка от 0.
   Net и result не изменяет, возвращаемого значения нет, расчёт не запускает.
 
-reporting/writeSimulationReport.m: pdfPath = writeSimulationReport(directory)
+reporting/writeSimulationReport.m: [pdfPath,result] = writeSimulationReport(directory,stride)
   Читает summary.mat и step_*.mat из папки запуска, создаёт report.pdf.
-  Первый лист содержит параметры и итог, затем шаг 0 и по листу на шаг:
+  stride — положительное целое число, по умолчанию 1 (все шаги).
+  selectSimulationReportSteps выбирает 0, stride, 2*stride, ... и последний шаг.
+  Первый лист содержит параметры и итог, затем шаг 0 и по листу на выбранный шаг:
   выполненный dt, накопленное модельное время, следующий solvedNet.dt, рисунок и 16 матриц.
   На первом листе также выводит постоянные по симуляции матрицы капиллярного
-  давления P_crit=coef*r^(-3/2) для H и V, Па. Таблица Net.P занимает ширину колонки H
+  давления P_crit=coef*r^(-5/4) для H и V, Па. Таблица Net.P занимает ширину колонки H
   с теми же отступами и шириной width/2-60, что H.Q;
   рисунок и узкая легенда справа от него — единым блоком над колонкой V.
   Легенда: одна колонка, шрифт 7 pt, длинные подписи разбиты на строки.
@@ -291,6 +295,32 @@ reporting/writeSimulationReport.m: pdfPath = writeSimulationReport(directory)
   Верхняя строка и левый столбец индексов имеют одинаковую цветную заливку.
   Использует скрытое окно, закрываемое через onCleanup, и exportgraphics MATLAB.
   Можно повторно собрать PDF из сохранённых MAT без повторного расчёта.
+  Номера страниц последовательны независимо от номеров выбранных шагов.
+  После успешной сборки обновляет только result в summary.mat: pdf,
+  reportStride и фактически включённые reportSteps. Net, parameters и снимки
+  не изменяет. PDF сначала собирается во временный файл.
+
+reporting/selectSimulationReportSteps.m: steps = selectSimulationReportSteps(lastStep,stride)
+  lastStep — число выполненных шагов, не включая состояние 0; целое >=0.
+  stride — положительное целое, по умолчанию 1. steps — числовой вектор
+  выбранных номеров в возрастающем порядке, включая 0 и lastStep без повторов.
+  Для lastStep=5: stride=2 -> [0 2 4 5], stride=3 -> [0 3 5].
+  При lastStep=0 возвращает [0]. Данные расчёта не меняет.
+
+reporting/showSimulationReportDialog.m: fig = showSimulationReportDialog(result)
+  result — итог сохранённого расчёта (directory, steps, status).
+  Создаёт uifigure с вариантами «Все»/«Каждый N», числовым полем и кнопкой
+  «Сформировать». Закрытие окна оставляет MAT без создания PDF.
+  changeSelection: включает поле N только для «Каждый N».
+  generate: проверяет N, вызывает writeSimulationReport после выбора;
+  обновляет simulationResult в base workspace только при совпадении directory.
+  При успехе сообщает путь PDF, кнопка становится «Закрыть»; при ошибке
+  показывает сообщение и разрешает повторную попытку. Модель не вызывается.
+
+tests/testSimulationReportModes.m: класс matlab.unittest.TestCase
+  12 проверок: выборки и их границы, недопустимые интервалы, сохранение всех
+  снимков без PDF, восстановление при ошибке, переключение/закрытие окна.
+  Использует изолированные временные папки, без вызовов модели и main.
 
 tests/runTests.m — скрипт, запускаемый из папки tests.
   resultsTarget по умолчанию указывает на results текущего проекта.

@@ -80,8 +80,6 @@ switch action
         end
         if session.recordResults
             saveSummary(session,Net);
-            session.result.pdf = writeSimulationReport(session.result.directory);
-            saveSummary(session,Net);
             fprintf('Результаты: %s\n',session.result.directory);
         end
         output = session.result;
@@ -98,13 +96,11 @@ switch action
         if session.recordResults
             try
                 saveSummary(session,restoredNet);
-                session.result.pdf = writeSimulationReport(session.result.directory);
-                saveSummary(session,restoredNet);
                 fprintf('Результаты: %s\n',session.result.directory);
             catch reportError
                 % A reporting failure must not replace the original calculation error.
-                warning('simulationReport:PartialReportFailed', ...
-                    'Не удалось записать частичный отчёт: %s',reportError.message);
+                warning('simulationReport:PartialResultsFailed', ...
+                    'Не удалось записать итог незавершённого расчёта: %s',reportError.message);
             end
         end
         output = session.result;

@@ -75,3 +75,19 @@ testCheckResults
 Перенесены новые уравнения и четыре параметра main. Общие изменённые MATLAB-файлы идентичны рабочей версии; прежние адаптации PDF сохранены. Проверки выполнены из каждой папки в R2025b: 48 unit-тестов, 39 сценариев валидатора, тесты состояния/хранения, полный main с 10 шагами и 12-страничным PDF. Итоговые Net совпали. Полный протокол — [new-physics-validation.md](new-physics-validation.md). Исторические количества и манифесты выше описывают копирование 07.10.2026, а не актуальный объём файлов после этого обновления.
 
 Для проверок входных параметров используется [validateattributes, R2023a](https://www.mathworks.com/help/releases/R2023a/matlab/ref/validateattributes.html), включая funcName/varName и ограничения positive/nonnegative/finite. Новые формулы используют базовые скалярные операции MATLAB. R2023a не установлена; выполнение именно в ней по-прежнему не подтверждено.
+
+## Обновление 14.10.2026: запуск и выборка отчёта
+
+Обе кнопки run сохраняют все MAT без автоматического PDF. Вторая кнопка после
+main открывает выбор «Все»/«Каждый N»; PDF включает состояние 0 и последний шаг.
+main.m, model/, solver/ и параметры Net не изменялись. Перенесены изменения run,
+simulationReport и writeSimulationReport; добавлены showSimulationReportDialog,
+selectSimulationReportSteps и testSimulationReportModes.
+Прежний экспорт через панель в пунктах и проверка isprop сохранены.
+
+Новые элементы окна используют API R2023a:
+[uibuttongroup](https://www.mathworks.com/help/releases/R2023a/matlab/ref/uibuttongroup.html),
+[uieditfield](https://www.mathworks.com/help/releases/R2023a/matlab/ref/uieditfield.html)
+и [uilabel с WordWrap](https://www.mathworks.com/help/releases/R2023a/matlab/ref/uilabel.html).
+Вычисление выборки использует validateattributes, unique и базовую индексацию.
+Проверки выполняются в установленной R2025b; запуск в R2023a не подтверждён.

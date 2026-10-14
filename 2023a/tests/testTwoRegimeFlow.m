@@ -123,7 +123,7 @@ classdef testTwoRegimeFlow < matlab.unittest.TestCase
         function mainStructure(testCase)
             source = fileread(fullfile(fileparts(fileparts(mfilename('fullpath'))),'main.m'));
             testCase.verifyEqual(numel(strfind(source,'Net = solvePressureFlow(Net);')),2);
-            testCase.verifyTrue(contains(source,'Net.k = 1.38;'));
+            testCase.verifyTrue(~isempty(regexp(source,'Net\.k\s*=\s*3\.29015\s*;','once')));
             testCase.verifyTrue(contains(source,'Net.P_crit_width = 4;'));
         end
         function defaultGeometrySequence(testCase)
@@ -205,7 +205,7 @@ classdef testTwoRegimeFlow < matlab.unittest.TestCase
         function nonmonotoneDerivativeRemainsExact(testCase)
             N=exampleNet(); N.mu1=0.00096; N.mu2=0.00419;
             radius=5e-6; area=pi*radius^2;
-            pressure=N.coef*radius^(-3/2); h=1e-4;
+            pressure=N.coef*radius^(-5/4); h=1e-4;
             [~,derivative]=capillaryEquation(N,pressure,0,area,0.5,1,0,1);
             fp=capillaryEquation(N,pressure+h,0,area,0.5,1,0,1);
             fm=capillaryEquation(N,pressure-h,0,area,0.5,1,0,1);
@@ -277,7 +277,7 @@ end
 
 function [pc,critical] = thresholds(N)
 r=sqrt(1e-6/pi);
-pc=0;critical=N.coef*r^(-3/2);
+pc=0;critical=N.coef*r^(-5/4);
 end
 
 function stats = replay(N)

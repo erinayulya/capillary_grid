@@ -279,14 +279,14 @@ uibutton(fig, ...
 
 uibutton(fig, ...
     'Position', [150 10 200 45], ...
-    'Text', 'Запустить по шагам', ...
+    'Text', 'Запустить', ...
     'FontSize', 14, ...
     'FontWeight', 'bold', ...
     'ButtonPushedFcn', @(~,~) startMain(false));
 
 uibutton(fig, ...
     'Position', [360 10 320 45], ...
-    'Text', 'Запустить и сохранить результаты', ...
+    'Text', 'Запустить и сформировать отчет', ...
     'FontSize', 14, ...
     'FontWeight', 'bold', ...
     'ButtonPushedFcn', @(~,~) startMain(true));
@@ -649,7 +649,7 @@ end
 % Создание Net и запуск main
 % ============================================================
 
-function startMain(saveResults)
+function startMain(generateReport)
 
     %% Проверка параметров модели
 
@@ -747,12 +747,16 @@ function startMain(saveResults)
     %% Передача Net в основной workspace
 
     assignin('base', 'runParameters', Net);
-    assignin('base', 'runRecordResults', saveResults);
+    assignin('base', 'runRecordResults', true);
 
 
     %% Запуск main
 
     evalin('base', 'main');
+
+    if generateReport
+        showSimulationReportDialog(evalin('base', 'simulationResult'));
+    end
 
 
     %% Закрытие окна

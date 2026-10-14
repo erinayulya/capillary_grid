@@ -399,7 +399,7 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
         if N.theta>=pi/2, mu = N.mu2; end
         for e = find(C.State==1 & ~C.closed)'
             expectedFlow=0; expectedRegime=0; expectedMove=3;
-            critical=N.coef*(sqrt(C.A(e)/pi))^(-3/2);
+            critical=N.coef*(sqrt(C.A(e)/pi))^(-5/4);
             if C.Move(e)==2
                 expectedMove=2;
             elseif C.dP(e)>0

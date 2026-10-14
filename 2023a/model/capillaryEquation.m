@@ -46,7 +46,7 @@ function [f,dfdp,dfdq,regime,move] = capillaryEquation(...
         error('capillaryEquation:InvalidPlateauCoefficient', ...
             'Для плато требуется 0<theta<pi и конечный B>0.');
     end
-    P_crit = Net.coef*r^(-3/2);
+    P_crit = Net.coef*r^(-5/4);
     width = Net.P_crit_width; % Полная ширина переходной зоны.
     regime = 1;
     if dp>P_crit, regime = 3; end

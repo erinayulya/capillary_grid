@@ -1,8 +1,10 @@
-function pdfPath = writeSimulationReport(directory)
+function [pdfPath,result] = writeSimulationReport(directory,stride)
 %WRITESIMULATIONREPORT Rebuild a PDF from saved parameters and step MAT files.
 % Uses base MATLAB graphics; no Report Generator or external Python required.
+if nargin < 2, stride = 1; end
 data = load(fullfile(directory,'summary.mat'),'result','parameters');
 result = data.result;
+selectedSteps = selectSimulationReportSteps(result.steps,stride);
 Net = data.parameters;
 pdfPath = fullfile(directory,'report.pdf');
 % Build separately so an earlier report survives an interrupted regeneration.
@@ -67,8 +69,14 @@ exportPage(fig,temporaryPdf,width,height,false);
 
 files = dir(fullfile(directory,'step_*.mat'));
 [~,order] = sort({files.name});
+stepNumbers = cellfun(@(name) sscanf(name,'step_%d'),{files.name});
+order = order(ismember(stepNumbers(order),selectedSteps));
+renderedSteps = zeros(1,numel(order));
+pageNumber = 1;
 for k = order
     snapshot = loadSimulationStep(fullfile(directory,files(k).name));
+    pageNumber = pageNumber + 1;
+    renderedSteps(pageNumber-1) = snapshot.step;
     Net = snapshot.Net;
     canvas = page(fig,width,height);
     label(canvas,40,38,sprintf('Шаг %d',snapshot.step),20,true);
@@ -148,10 +156,14 @@ for k = order
     drawTable(canvas,marginV,['Net.V: Δp − ' pressureName ', Па'], ...
         40+width/2,marginY+38,width/2-60,'%.6g');
     label(canvas,40,height-20,sprintf('Страница %d | Индексы строк и столбцов соответствуют MATLAB.', ...
-        snapshot.step+2),9,false);
+        pageNumber),9,false);
     exportPage(fig,temporaryPdf,width,height,true);
 end
 movefile(temporaryPdf,pdfPath,'f');
+result.pdf = pdfPath;
+result.reportStride = stride;
+result.reportSteps = renderedSteps;
+save(fullfile(directory,'summary.mat'),'result','-append');
 end
 
 function exportPage(fig,pdfPath,width,height,append)
@@ -221,8 +233,8 @@ end
 
 function [PcH,PcV] = capillaryPressures(Net)
 if isfield(Net,'k')
-    PcH = Net.coef*sqrt(Net.H.A/pi).^(-3/2);
-    PcV = Net.coef*sqrt(Net.V.A/pi).^(-3/2);
+    PcH = Net.coef*sqrt(Net.H.A/pi).^(-5/4);
+    PcV = Net.coef*sqrt(Net.V.A/pi).^(-5/4);
 else
     % Чтение исторических отчётов без переинтерпретации параметров.
     PcH = 2*Net.sigma*cos(Net.theta)./sqrt(Net.H.A/pi);
@@ -234,7 +246,7 @@ function lines = modelParameterLines(Net)
 if isfield(Net,'k')
     lines = {
         sprintf('Коэффициент плато k: %.12g; xi: %.12g',Net.k,Net.xi)
-        sprintf('P_crit: coef=%.12g Па·м^(3/2); ширина=%.12g Па',Net.coef,Net.P_crit_width)};
+        sprintf('P_crit: coef=%.12g Па·м^(5/4); ширина=%.12g Па',Net.coef,Net.P_crit_width)};
 else
     lines = {
         sprintf('Исторический коэффициент kdyn: %.12g',Net.kdyn)
