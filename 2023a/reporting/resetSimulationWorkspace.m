@@ -1,6 +1,6 @@
 function resetSimulationWorkspace(openingInterface)
 %RESETSIMULATIONWORKSPACE Clear previous in-memory results and all figure windows.
-% main consumes only fresh runParameters and the one-shot runRecordResults flag.
+% main consumes fresh runParameters, runModelOptions and runRecordResults.
 % run calls with true to clear the base workspace before creating its UI.
 % Saved files and MATLAB's path are not changed.
 if nargin < 1, openingInterface = false; end
@@ -10,7 +10,7 @@ if openingInterface
     evalin('base','clearvars');
 else
     evalin('caller', [ ...
-        'clearvars -except runParameters runRecordResults; ' ...
+        'clearvars -except runParameters runModelOptions runRecordResults; ' ...
         'if exist(''runParameters'',''var''), Net = runParameters; end; ' ...
         'clear runParameters;']);
 end

@@ -413,8 +413,12 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
                 a=8*N.L/r^2*(N.mu1*(1-C.Sat(e))+N.mu2*C.Sat(e)) ...
                     +N.xi*(N.mu1+N.mu2)/r;
                 b=2*N.k*N.sigma/r*sin(N.theta)*(mu/N.sigma)^(1/3);
-                t=max(0,min(1,(C.dP(e)-critical)/N.P_crit_width+0.5));
-                weight=6*t^5-15*t^4+10*t^3;
+                if N.P_crit_width==0
+                    weight=double(C.dP(e)>critical);
+                else
+                    t=max(0,min(1,(C.dP(e)-critical)/N.P_crit_width+0.5));
+                    weight=6*t^5-15*t^4+10*t^3;
+                end
                 expectedFlow=C.A(e)*((1-weight)*(C.dP(e)/b)^3+weight*C.dP(e)/a);
             end
             if abs(C.Dir(e)*C.Q(e)-expectedFlow)>=tol.flow
@@ -539,7 +543,9 @@ for field = {'mu1','mu2','L','sigma','theta','VerticalBC','dt','P','H','V'}
 end
 fields={'mu1','mu2','L','sigma'};
 if isfield(N,'k')
-    fields=[fields,{'k','coef','P_crit_width'}];
+    fields=[fields,{'k'}];
+    validateattributes(N.coef,{'numeric'},{'scalar','real','finite','nonnegative'});
+    validateattributes(N.P_crit_width,{'numeric'},{'scalar','real','finite','nonnegative'});
     validateattributes(N.xi,{'numeric'},{'scalar','real','finite','nonnegative'});
     assert(N.theta>0 && N.theta<pi,'New meniscus law requires 0<theta<pi.');
 else

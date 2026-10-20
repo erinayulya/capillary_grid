@@ -11,9 +11,12 @@
 function Net = solvePressureFlow(Net)
 
     % Ошибочные параметры обнаруживаются до сборки/решения системы.
-    for field = {'k','coef','P_crit_width'}
+    validateattributes(Net.k,{'numeric'}, ...
+        {'scalar','real','finite','positive'},mfilename,'k');
+    % coef=width=0 оставляет только вязкую ветвь при любом dp>0.
+    for field = {'coef','P_crit_width'}
         validateattributes(Net.(field{1}),{'numeric'}, ...
-            {'scalar','real','finite','positive'},mfilename,field{1});
+            {'scalar','real','finite','nonnegative'},mfilename,field{1});
     end
     validateattributes(Net.xi,{'numeric'}, ...
         {'scalar','real','finite','nonnegative'},mfilename,'xi');

@@ -30,11 +30,29 @@ if ~exist('Net', 'var')
         1 1 1];
 end
 
-% Параметры новой физики задаются только здесь, в том числе при запуске run.
+% Выбор модели: значения для прямого запуска main и выбор из окна run.
+includeAadd = true;                % Учитывать A_add в вязком режиме
+meniscusModel = 2;                 % 1 — вязкий; 2 — плато и вязкий
+if exist('runModelOptions','var')
+    includeAadd = runModelOptions.includeAadd;
+    meniscusModel = runModelOptions.meniscusModel;
+end
+clear runModelOptions
+validateattributes(includeAadd,{'logical','numeric'}, ...
+    {'scalar','real','finite','binary'},mfilename,'includeAadd');
+validateattributes(meniscusModel,{'numeric'}, ...
+    {'scalar','real','finite','integer','>=',1,'<=',2},mfilename,'meniscusModel');
+
+% Расчётные коэффициенты задаются только здесь, в том числе при запуске run.
 Net.k =3.29015;                       % Безразмерный коэффициент плато
 Net.coef = 6.644123616564944e-4;    % P_crit=coef*r^(-5/4), Па*м^(5/4)
 Net.xi = 30.079341699546497;        % A_add=xi*(mu1+mu2)/r, безразмерный
 Net.P_crit_width = 4;               % Полная ширина переходной зоны, Па
+if ~includeAadd, Net.xi = 0; end
+if meniscusModel == 1
+    Net.coef = 0;
+    Net.P_crit_width = 0;
+end
 obsoleteFields = intersect(fieldnames(Net),{'kdyn','bound'});
 if ~isempty(obsoleteFields), Net = rmfield(Net,obsoleteFields); end
 if ~isfield(Net.V,'P0'), Net.V.P0 = 200; end

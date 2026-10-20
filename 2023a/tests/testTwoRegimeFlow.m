@@ -7,6 +7,9 @@ classdef testTwoRegimeFlow < matlab.unittest.TestCase
         transitionOffset = {-2,0,2}
         contactAngle = {pi/4,pi/2,3*pi/4}
         damagedField = {'flow','move','regime'}
+        additiveResistance = {0,30.079341699546497}
+        viscousPressure = {1e-9,1,1000}
+        modelOption = {'viscous','classical','withoutAdd'}
     end
     methods (TestClassSetup)
         function paths(testCase)
@@ -212,10 +215,38 @@ classdef testTwoRegimeFlow < matlab.unittest.TestCase
             testCase.verifyGreaterThan(derivative,0); % dQ/dp<0 is not clipped.
             testCase.verifyEqual(derivative,(fp-fm)/(2*h),'RelTol',1e-6,'AbsTol',1e-20);
         end
-        function invalidWidthRejected(testCase)
-            N=exampleNet(); N.P_crit_width=0;
+        function negativeWidthRejected(testCase)
+            N=exampleNet(); N.P_crit_width=-1;
             testCase.verifyError(@() solvePressureFlow(N), ...
-                'MATLAB:solvePressureFlow:expectedPositive');
+                'MATLAB:solvePressureFlow:expectedNonnegative');
+        end
+        function oneRegimeIsViscous(testCase,additiveResistance,viscousPressure)
+            N=exampleNet(); N.coef=0; N.P_crit_width=0; N.xi=additiveResistance;
+            area=pi*(100e-6)^2; saturation=0.4; r=sqrt(area/pi);
+            resistance=8*N.L/r^2*(N.mu1*(1-saturation)+N.mu2*saturation) ...
+                +additiveResistance*(N.mu1+N.mu2)/r;
+            [f,derivative,~,regime,move]=capillaryEquation( ...
+                N,viscousPressure,0,area,saturation,1,1,1);
+            testCase.verifyEqual(-f,area*viscousPressure/resistance, ...
+                'AbsTol',1e-30,'RelTol',1e-12);
+            testCase.verifyEqual(derivative,-area/resistance, ...
+                'AbsTol',1e-30,'RelTol',1e-12);
+            testCase.verifyEqual([regime,move],[3,1]);
+        end
+        function oneRegimeNetworkMatchesSeriesResistance(testCase,additiveResistance)
+            N=smallNet(1,1); N.coef=0; N.P_crit_width=0; N.xi=additiveResistance;
+            area=N.H.A(1); r=sqrt(area/pi);
+            waterResistance=8*pi*N.mu1*N.L/area^2;
+            extraResistance=additiveResistance*(N.mu1+N.mu2)/(r*area);
+            expected=N.H.P0/(2*waterResistance+extraResistance);
+            actual=solvePressureFlow(N);
+            testCase.verifyEqual(actual.H.Q,[expected,expected], ...
+                'AbsTol',1e-19,'RelTol',1e-12);
+            testCase.verifyEqual(actual.H.Regime(1),3);
+        end
+        function validatorAcceptsModelOptions(testCase,modelOption)
+            report=currentFixture(modelOption);
+            testCase.verifyTrue(report.allCorrect);
         end
         function mainParametersNotExposedInRun(testCase)
             root=fileparts(fileparts(mfilename('fullpath')));
@@ -235,6 +266,12 @@ directory=tempname(fullfile(root,'tmp'));mkdir(directory);
 parameters=smallNet(1,3);
 if strcmp(damage,'held')
     parameters.H.P0=0;
+end
+if ismember(damage,{'viscous','classical'})
+    parameters.coef=0; parameters.P_crit_width=0;
+end
+if ismember(damage,{'withoutAdd','classical'})
+    parameters.xi=0;
 end
 Net=calcTimeStep(solvePressureFlow(calcCanMove(parameters)));
 switch damage
