@@ -83,6 +83,29 @@ if any(isnan(ids))
 end
 [ids,order] = sort(ids);
 files = files(order);
+sparseRecording = false;
+summaryPath = fullfile(folder,'summary.mat');
+if isfile(summaryPath)
+    try
+        metadata = load(summaryPath,'result');
+        if isfield(metadata,'result') && isfield(metadata.result,'saveStride')
+            expectedIds = selectSimulationReportSteps( ...
+                metadata.result.steps,metadata.result.saveStride);
+            if ~isequal(ids(:)',expectedIds)
+                issue('ERROR','FILES','saveStride', ...
+                    'Номера MAT не соответствуют периодичности и последнему шагу из summary.mat.');
+            elseif any(diff(ids)>1)
+                sparseRecording = true;
+                issue('WARNING','HISTORY','saveStride', ...
+                    ['Выборочная запись: переходы через пропущенные шаги и полную историю ', ...
+                    'стационарности проверить нельзя. Проверяются сохранённые состояния ', ...
+                    'и переходы только между соседними номерами.']);
+            end
+        end
+    catch exception
+        issue('ERROR','FILES','saveStride','Некорректные параметры записи: %s',exception.message);
+    end
+end
 if isempty(files)
     issue('ERROR','FILES','step_*.mat','Нет сохранённых шагов; проверка не выполнена.');
 elseif ids(1) ~= 0
@@ -109,11 +132,14 @@ for k = 1:numel(files)
             checkInitial(N,isCurrentLaw(sample));
         elseif ~isempty(previous) && ids(k)==previousId+1
             checkTransition(previous,sample);
+        elseif sparseRecording && ~isempty(previous)
+            fprintf(fid,'  Переход %g -> %g не проверяется: промежуточные шаги не сохранялись.\n', ...
+                previousId,ids(k));
         else
             issue('ERROR','9/10','history', ...
                 'Нет корректного соседнего предыдущего шага; переход не проверен.');
         end
-        if k>1 && ids(k)~=ids(k-1)+1
+        if ~sparseRecording && k>1 && ids(k)~=ids(k-1)+1
             issue('ERROR','FILES','step','Пропуск или повтор номера: %g -> %g.',ids(k-1),ids(k));
         end
         previous = sample; previousId = ids(k);
@@ -459,7 +485,13 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
         breakthrough = any(N.H.State(:,end)==2);
         declaredBreak = contains(status,'достигла правой границы');
         if strcmp(status,'Установилось стационарное течение.')
-            if ~isfield(R,'stationarity') || isempty(stationarity) || ~stationarity.stop
+            if sparseRecording
+                if ~isfield(R,'stationarity') || ~isfield(R.stationarity,'stop') || ...
+                        ~isequal(R.stationarity.stop,true) || ~breakthrough
+                    issue('ERROR','11','result.status', ...
+                        'Заявлена стационарность, но нет stop=true или прорыва в итоговых данных.');
+                end
+            elseif ~isfield(R,'stationarity') || isempty(stationarity) || ~stationarity.stop
                 issue('ERROR','11','result.status', ...
                     'Стационарность после прорыва не подтверждается сохранёнными шагами.');
             end

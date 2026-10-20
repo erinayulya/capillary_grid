@@ -5,6 +5,7 @@ function [output, restoredNet] = simulationReport(action, Net, options, outputRo
 % next/finish: optional checkSteadyState monitor (outside Net).
 % fail returns the last accepted Net as its second output; no model calls.
 % One active reporting session; every start resets its state.
+% MAT stride is consumed once from simulationStorageOptions; default is 1.
 persistent session
 output = [];
 restoredNet = Net;
@@ -18,11 +19,14 @@ switch action
         if nargin < 5, maxSteps = 10000; end
         validateattributes(recordResults,{'logical'},{'scalar'});
         validateattributes(maxSteps,{'numeric'},{'scalar','integer','positive','finite'});
+        saveStride = simulationStorageOptions('take');
         session = struct('recordResults',recordResults,'maxSteps',maxSteps, ...
-            'parameters',Net,'lastNet',Net,'snapshots',0,'dtUsed',0,'timer',[]);
+            'parameters',Net,'lastNet',Net,'snapshots',0,'dtUsed',0,'timer',[], ...
+            'lastStepComputeTime',0,'lastDtUsed',0,'lastTotalComputeTime',0,'lastSavedStep',-1);
         session.result = struct('startedAt',datestr(now,'yyyy-mm-dd HH:MM:SS'), ...
             'totalTime',0,'totalComputeTime',0,'failedComputeTime',0, ...
-            'steps',0,'status','Расчёт не завершён.','directory','','pdf','');
+            'steps',0,'status','Расчёт не завершён.','directory','','pdf','', ...
+            'saveStride',saveStride);
         if recordResults
             if ~isfolder(outputRoot), mkdir(outputRoot); end
             baseName = ['run_' datestr(now,'yyyymmdd_HHMMSS')];
@@ -45,8 +49,13 @@ switch action
         session.result.steps = session.snapshots;
         session.result.totalTime = session.result.totalTime + session.dtUsed;
         session.lastNet = Net;
+        session.lastStepComputeTime = seconds;
+        session.lastDtUsed = session.dtUsed;
+        session.lastTotalComputeTime = session.result.totalComputeTime;
         if session.recordResults
-            saveSimulationStep(Net,session.result,session.dtUsed,seconds);
+            if mod(session.result.steps,session.result.saveStride) == 0
+                session = saveLastStep(session);
+            end
             saveSummary(session,Net);
         else
             drawNetwork(Net,session.result.steps > 0);
@@ -88,6 +97,7 @@ switch action
             session.result.status = 'Вторая фаза достигла правой границы.';
         end
         if session.recordResults
+            if session.snapshots > 0, session = saveLastStep(session); end
             saveSummary(session,Net);
             fprintf('Результаты: %s\n',session.result.directory);
         end
@@ -104,6 +114,7 @@ switch action
         restoredNet = session.lastNet;
         if session.recordResults
             try
+                if session.snapshots > 0, session = saveLastStep(session); end
                 saveSummary(session,restoredNet);
                 fprintf('Результаты: %s\n',session.result.directory);
             catch reportError
@@ -124,6 +135,15 @@ function requireSession(session)
 if isempty(session)
     error('simulationReport:NotStarted','Сначала вызовите simulationReport(''start'',Net).');
 end
+end
+
+function session = saveLastStep(session)
+% The last accepted state is already cached; never write a skipped step twice.
+if session.lastSavedStep == session.result.steps, return; end
+result = session.result;
+result.totalComputeTime = session.lastTotalComputeTime;
+saveSimulationStep(session.lastNet,result,session.lastDtUsed,session.lastStepComputeTime);
+session.lastSavedStep = session.result.steps;
 end
 
 function saveSummary(session,Net)

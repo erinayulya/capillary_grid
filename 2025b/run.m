@@ -1,383 +1,270 @@
 function run
 
 setupProject;
-
 resetSimulationWorkspace(true);
-
-%% ============================================================
-% Окно
-% ============================================================
-fig = uifigure( ...
-    'Name', 'Параметры расчёта', ...
-    'Visible', 'off', ...
-    'AutoResizeChildren', 'off', ...
-    'Position', [400 50 700 950]);
-
-
-%% ============================================================
-% Параметры модели
-% ============================================================
-
-uilabel(fig, ...
-    'Position', [40 900 400 30], ...
-    'Text', 'Параметры модели', ...
-    'FontSize', 20, ...
-    'FontWeight', 'bold');
-
-
-% ------------------------------------------------------------
-% Вязкость воды
-% ------------------------------------------------------------
-
-uilabel(fig, ...
-    'Position', [40 850 380 30], ...
-    'Text', 'Вязкость воды μ₁, Па·с', ...
-    'FontSize', 15);
-
-mu1 = uieditfield(fig, 'numeric', ...
-    'Position', [480 850 170 30], ...
-    'Value', 1e-3, ...
-    'FontSize', 15);
-
-
-% ------------------------------------------------------------
-% Отношение вязкостей
-% ------------------------------------------------------------
-
-uilabel(fig, ...
-    'Position', [40 800 400 45], ...
-    'Text', {'Во сколько раз вязкость нефти', ...
-             'больше вязкости воды μ₂ / μ₁'}, ...
-    'FontSize', 15);
-
-muRatio = uieditfield(fig, 'numeric', ...
-    'Position', [480 805 170 30], ...
-    'Value', 4.3, ...
-    'FontSize', 15);
-
-
-% ------------------------------------------------------------
-% Длина капилляра
-% ------------------------------------------------------------
-
-uilabel(fig, ...
-    'Position', [40 750 380 30], ...
-    'Text', 'Длина капилляра L, м', ...
-    'FontSize', 15);
-
-L = uieditfield(fig, 'numeric', ...
-    'Position', [480 750 170 30], ...
-    'Value', 9e-3, ...
-    'FontSize', 15);
-
-
-% ------------------------------------------------------------
-% Поверхностное натяжение
-% ------------------------------------------------------------
-
-uilabel(fig, ...
-    'Position', [40 700 400 30], ...
-    'Text', 'Поверхностное натяжение σ, Н/м', ...
-    'FontSize', 15);
-
-sigma = uieditfield(fig, 'numeric', ...
-    'Position', [480 700 170 30], ...
-    'Value', 7e-2, ...
-    'FontSize', 15);
-
-
-% ------------------------------------------------------------
-% Угол смачивания
-% ------------------------------------------------------------
-
-uilabel(fig, ...
-    'Position', [40 650 380 30], ...
-    'Text', 'Угол смачивания θ, рад', ...
-    'FontSize', 15);
-
-theta = uieditfield(fig, 'numeric', ...
-    'Position', [480 650 170 30], ...
-    'Value', pi/4, ...
-    'FontSize', 15);
-
-
-% ------------------------------------------------------------
-% Модель движения мениска и поправка вязкого сопротивления
-% ------------------------------------------------------------
-
-uilabel(fig, ...
-    'Position', [40 600 280 30], ...
-    'Text', 'Модель движения мениска', ...
-    'FontSize', 15);
-
-MeniscusModel = uidropdown(fig, ...
-    'Position', [330 600 320 30], ...
-    'Items', {'Один режим (вязкий)', 'Два режима (плато и вязкий)'}, ...
-    'ItemsData', [1 2], ...
-    'Value', 2, ...
-    'FontSize', 15);
-
-IncludeAadd = uicheckbox(fig, ...
-    'Position', [40 550 610 30], ...
-    'Text', 'Учитывать A_add в вязком режиме', ...
-    'Value', true, ...
-    'FontSize', 15);
-
-
-%% ============================================================
-% Граничные условия
-% ============================================================
-
-uilabel(fig, ...
-    'Position', [40 495 400 30], ...
-    'Text', 'Граничные условия', ...
-    'FontSize', 20, ...
-    'FontWeight', 'bold');
-
-
-% ------------------------------------------------------------
-% Давление на левой границе
-% ------------------------------------------------------------
-
-uilabel(fig, ...
-    'Position', [40 445 400 30], ...
-    'Text', 'Давление на левой границе P₀, Па', ...
-    'FontSize', 15);
-
-H_P0 = uieditfield(fig, 'numeric', ...
-    'Position', [480 445 170 30], ...
-    'Value', 1500, ...
-    'FontSize', 15);
-
-
-% ------------------------------------------------------------
-% Верхняя и нижняя границы
-% ------------------------------------------------------------
-
-VerticalBC = uicheckbox(fig, ...
-    'Position', [40 395 600 30], ...
-    'Text', 'Верхняя и нижняя граница проницаемы', ...
-    'Value', false, ...
-    'FontSize', 15);
-
-
-%% ============================================================
-% Геометрия сети
-% ============================================================
-
-uilabel(fig, ...
-    'Position', [40 345 400 30], ...
-    'Text', 'Геометрия сети', ...
-    'FontSize', 20, ...
-    'FontWeight', 'bold');
-
-
-% ------------------------------------------------------------
-% Способ задания площади
-% ------------------------------------------------------------
-
-uilabel(fig, ...
-    'Position', [40 300 300 30], ...
-    'Text', 'Площадь капилляров', ...
-    'FontSize', 15);
-
-AreaType = uidropdown(fig, ...
-    'Position', [480 300 170 30], ...
-    'Items', {'Матрица площадей', 'Случайная'}, ...
-    'Value', 'Матрица площадей', ...
-    'FontSize', 15, ...
-    'ValueChangedFcn', @changeAreaType);
-
-
-%% ============================================================
-% Случайная площадь
-% ============================================================
-
-RandomPanel = uipanel(fig, ...
-    'Position', [30 90 640 190], ...
-    'BorderType', 'none', ...
-    'Visible', 'off');
-
-
-% Диапазон площадей
-
-uilabel(RandomPanel, ...
-    'Position', [10 135 400 30], ...
-    'Text', 'Диапазон площадей [от, до], м²', ...
-    'FontSize', 15);
-
-RandomMin = uieditfield(RandomPanel, 'numeric', ...
-    'Position', [450 135 80 30], ...
-    'Value', pi*(0.1e-3/2)^2, ... % Диаметр 0.1 мм
-    'FontSize', 15);
-
-RandomMax = uieditfield(RandomPanel, 'numeric', ...
-    'Position', [540 135 80 30], ...
-    'Value', pi*(1e-3/2)^2, ... % Диаметр 1 мм
-    'FontSize', 15);
-
-
-% Число горизонтальных рядов
-
-uilabel(RandomPanel, ...
-    'Position', [10 85 400 30], ...
-    'Text', 'Число горизонтальных рядов капилляров', ...
-    'FontSize', 15);
-
-RandomN_rows = uieditfield(RandomPanel, 'numeric', ...
-    'Position', [450 85 170 30], ...
-    'Value', 3, ...
-    'FontSize', 15);
-
-
-% Число вертикальных рядов
-
-uilabel(RandomPanel, ...
-    'Position', [10 35 400 30], ...
-    'Text', 'Число вертикальных рядов капилляров', ...
-    'FontSize', 15);
-
-RandomN_cols = uieditfield(RandomPanel, 'numeric', ...
-    'Position', [450 35 170 30], ...
-    'Value', 3, ...
-    'FontSize', 15);
-
-
-%% ============================================================
-% Матрицы площадей
-% ============================================================
-
-MatrixPanel = uipanel(fig, ...
-    'Position', [20 50 660 230], ...
-    'BorderType', 'none', ...
-    'Visible', 'on');
-
-
-% Горизонтальные капилляры
-
-uilabel(MatrixPanel, ...
-    'Position', [10 175 300 45], ...
-    'Text', {'Матрица площадей', ...
-             'горизонтальных капилляров A, м²'}, ...
-    'FontSize', 14);
-
-H_A = uitextarea(MatrixPanel, ...
-    'Position', [10 65 280 100], ...
-    'Value', { ...
-        '[1 1 1 1;', ...
-        ' 1 2 1 1;', ...
-        ' 1 1 1 1]*pi*(100e-6)^2'}, ...
-    'FontSize', 13);
-
-
-% Вертикальные капилляры
-
-uilabel(MatrixPanel, ...
-    'Position', [350 175 300 45], ...
-    'Text', {'Матрица площадей', ...
-             'вертикальных капилляров A, м²'}, ...
-    'FontSize', 14);
-
-V_A = uitextarea(MatrixPanel, ...
-    'Position', [350 65 280 100], ...
-    'Value', { ...
-        '[1 1 1;', ...
-        ' 1 1 1;', ...
-        ' 1 5 1;', ...
-        ' 1 1 1]*pi*(100e-6)^2'}, ...
-    'FontSize', 13);
-
-
-%% ============================================================
-% Кнопки
-% ============================================================
-
-uibutton(fig, ...
-    'Position', [20 10 120 45], ...
-    'Text', 'Нарисовать', ...
-    'FontSize', 14, ...
-    'FontWeight', 'bold', ...
-    'ButtonPushedFcn', @previewNetwork);
-
-
-uibutton(fig, ...
-    'Position', [150 10 200 45], ...
-    'Text', 'Запустить', ...
-    'FontSize', 14, ...
-    'FontWeight', 'bold', ...
-    'ButtonPushedFcn', @(~,~) startMain(false));
-
-uibutton(fig, ...
-    'Position', [360 10 320 45], ...
-    'Text', 'Запустить и сформировать отчет', ...
-    'FontSize', 14, ...
-    'FontWeight', 'bold', ...
-    'ButtonPushedFcn', @(~,~) startMain(true));
-
-% Вписываем исходную компоновку 700x950 в экран с запасом под рамку окна.
-rootUnits = get(groot,'Units');
-set(groot,'Units','pixels');
-monitors = get(groot,'MonitorPositions');
-pointer = get(groot,'PointerLocation');
+projectFolder = fileparts(mfilename('fullpath'));
+settingsFile = fullfile(fileparts(projectFolder),'run-settings.mat');
+previousGeometry = struct();
+
+%% Окно: раскрывающиеся группы и постоянные кнопки внизу
+fig = uifigure('Name','Параметры расчёта','Visible','off', ...
+    'Position',[400 100 760 820]);
+layout = uigridlayout(fig,[3 1],'RowHeight',{'1x',22,42}, ...
+    'ColumnWidth',{'1x'},'Padding',[12 12 12 12]);
+sections = uigridlayout(layout,[6 1],'ColumnWidth',{'1x'}, ...
+    'RowHeight',{36,330,36,0,36,0},'Padding',[0 0 0 0], ...
+    'RowSpacing',8,'Scrollable','on');
+sections.Layout.Row = 1;
+groupNames = {'Физические параметры','Параметры сети','Результаты'};
+groupHeights = [330 290 54];
+groupPanels = gobjects(1,3);
+groupHeaders = gobjects(1,3);
+for groupIndex = 1:3
+    groupHeaders(groupIndex) = uibutton(sections,'state', ...
+        'Text',['▶ ' groupNames{groupIndex}],'Value',false, ...
+        'FontSize',15,'FontWeight','bold', ...
+        'Tag',sprintf('groupHeader%d',groupIndex), ...
+        'ValueChangedFcn',@(src,~) toggleGroup(src));
+    groupHeaders(groupIndex).Layout.Row = 2*groupIndex-1;
+    groupHeaders(groupIndex).UserData = groupIndex;
+    groupPanels(groupIndex) = uipanel(sections,'BorderType','none', ...
+        'Visible','off','Tag',sprintf('groupPanel%d',groupIndex));
+    groupPanels(groupIndex).Layout.Row = 2*groupIndex;
+end
+
+%% Физические параметры: жидкости, модель и границы
+physical = uigridlayout(groupPanels(1),[8 2], ...
+    'ColumnWidth',{'1x',310},'RowHeight',{30,42,30,30,30,30,30,30}, ...
+    'Padding',[10 8 10 8],'RowSpacing',8);
+uilabel(physical,'Text','Вязкость воды μ₁, Па·с','FontSize',14);
+mu1 = uieditfield(physical,'numeric','Value',1e-3,'FontSize',14);
+uilabel(physical,'Text',{'Во сколько раз вязкость нефти', ...
+    'больше вязкости воды μ₂ / μ₁'},'FontSize',14);
+muRatio = uieditfield(physical,'numeric','Value',4.3,'FontSize',14);
+uilabel(physical,'Text','Длина капилляра L, м','FontSize',14);
+L = uieditfield(physical,'numeric','Value',9e-3,'FontSize',14);
+uilabel(physical,'Text','Поверхностное натяжение σ, Н/м','FontSize',14);
+sigma = uieditfield(physical,'numeric','Value',7e-2,'FontSize',14);
+uilabel(physical,'Text','Угол смачивания θ, рад','FontSize',14);
+theta = uieditfield(physical,'numeric','Value',pi/4,'FontSize',14);
+uilabel(physical,'Text','Модель движения мениска','FontSize',14);
+MeniscusModel = uidropdown(physical, ...
+    'Items',{'Один режим (вязкий)','Два режима (плато и вязкий)'}, ...
+    'ItemsData',[1 2],'Value',2,'FontSize',14);
+IncludeAadd = uicheckbox(physical,'Text','Учитывать A_add в вязком режиме', ...
+    'Value',true,'FontSize',14);
+IncludeAadd.Layout.Row = 7; IncludeAadd.Layout.Column = [1 2];
+pressureLabel = uilabel(physical,'Text','Давление на левой границе P₀, Па','FontSize',14);
+pressureLabel.Layout.Row = 8; pressureLabel.Layout.Column = 1;
+H_P0 = uieditfield(physical,'numeric','Value',1500,'FontSize',14);
+H_P0.Layout.Row = 8; H_P0.Layout.Column = 2;
+
+%% Параметры сети: матрицы или настройки случайных площадей
+geometryLayout = uigridlayout(groupPanels(2),[2 2], ...
+    'ColumnWidth',{'1x',310},'RowHeight',{30,250}, ...
+    'Padding',[0 0 0 0],'RowSpacing',4);
+uilabel(geometryLayout,'Text','Геометрия сети','FontSize',14);
+GeometryMode = uidropdown(geometryLayout, ...
+    'Items',{'Использовать предыдущую','Задать новую'}, ...
+    'Value','Задать новую','FontSize',14,'ValueChangedFcn',@changeGeometryMode);
+NewGeometryPanel = uipanel(geometryLayout,'BorderType','none','Tag','newGeometryPanel');
+NewGeometryPanel.Layout.Row = 2; NewGeometryPanel.Layout.Column = [1 2];
+network = uigridlayout(NewGeometryPanel,[3 2], ...
+    'ColumnWidth',{'1x',310},'RowHeight',{30,0,200}, ...
+    'Padding',[10 8 10 8],'RowSpacing',4);
+uilabel(network,'Text','Площадь капилляров','FontSize',14);
+AreaType = uidropdown(network,'Items',{'Матрица площадей','Случайная'}, ...
+    'Value','Матрица площадей','FontSize',14,'ValueChangedFcn',@changeAreaType);
+RandomPanel = uipanel(network,'BorderType','none','Visible','off');
+RandomPanel.Layout.Row = 2; RandomPanel.Layout.Column = [1 2];
+randomGrid = uigridlayout(RandomPanel,[3 3], ...
+    'ColumnWidth',{'1x',130,130},'RowHeight',{38,38,38}, ...
+    'Padding',[0 8 0 8],'RowSpacing',12);
+uilabel(randomGrid,'Text','Диапазон площадей [от, до], м²','FontSize',14);
+RandomMin = uieditfield(randomGrid,'numeric','Value',pi*(0.1e-3/2)^2,'FontSize',14);
+RandomMax = uieditfield(randomGrid,'numeric','Value',pi*(1e-3/2)^2,'FontSize',14);
+uilabel(randomGrid,'Text','Число горизонтальных рядов капилляров','FontSize',14);
+RandomN_rows = uieditfield(randomGrid,'numeric','Value',3,'FontSize',14);
+RandomN_rows.Layout.Row = 2; RandomN_rows.Layout.Column = [2 3];
+columnLabel = uilabel(randomGrid,'Text','Число вертикальных рядов капилляров','FontSize',14);
+columnLabel.Layout.Row = 3; columnLabel.Layout.Column = 1;
+RandomN_cols = uieditfield(randomGrid,'numeric','Value',3,'FontSize',14);
+RandomN_cols.Layout.Row = 3; RandomN_cols.Layout.Column = [2 3];
+MatrixPanel = uipanel(network,'BorderType','none');
+MatrixPanel.Layout.Row = 3; MatrixPanel.Layout.Column = [1 2];
+matrixGrid = uigridlayout(MatrixPanel,[2 2], ...
+    'ColumnWidth',{'1x','1x'},'RowHeight',{44,'1x'},'Padding',[0 0 0 0]);
+uilabel(matrixGrid,'Text',{'Матрица площадей', ...
+    'горизонтальных капилляров A, м²'},'FontSize',13);
+uilabel(matrixGrid,'Text',{'Матрица площадей', ...
+    'вертикальных капилляров A, м²'},'FontSize',13);
+H_A = uitextarea(matrixGrid,'Value',{'[1 1 1 1;',' 1 2 1 1;', ...
+    ' 1 1 1 1]*pi*(100e-6)^2'},'FontSize',13);
+V_A = uitextarea(matrixGrid,'Value',{'[1 1 1;',' 1 1 1;', ...
+    ' 1 5 1;',' 1 1 1]*pi*(100e-6)^2'},'FontSize',13);
+%% Результаты: сохраняемые шаги (не влияет на расчёт)
+resultsGrid = uigridlayout(groupPanels(3),[2 2], ...
+    'ColumnWidth',{'1x',310},'RowHeight',{30,0}, ...
+    'Padding',[10 8 10 8],'RowSpacing',8);
+uilabel(resultsGrid,'Text','Сколько шагов сохранять','FontSize',14);
+SaveStepsMode = uidropdown(resultsGrid, ...
+    'Items',{'Все','Сохранять каждый N шаг'},'Value','Все', ...
+    'FontSize',14,'ValueChangedFcn',@changeSaveStepsMode);
+saveEveryNLabel = uilabel(resultsGrid,'Text','N','FontSize',14,'Visible','off');
+SaveEveryN = uieditfield(resultsGrid,'numeric','Value',2, ...
+    'FontSize',14,'Visible','off');
+
+%% Кнопки и восстановление явно сохранённого ввода
+statusLabel = uilabel(layout,'Text','','Tag','saveStatus','FontSize',13);
+statusLabel.Layout.Row = 2;
+buttons = uigridlayout(layout,[1 3],'ColumnWidth',{'1x','1x','1.5x'}, ...
+    'RowHeight',{'1x'},'Padding',[0 0 0 0]);
+buttons.Layout.Row = 3;
+uibutton(buttons,'Text','Нарисовать','FontSize',14,'ButtonPushedFcn',@previewNetwork);
+uibutton(buttons,'Text','Сохранить','FontSize',14,'ButtonPushedFcn',@saveInputs);
+uibutton(buttons,'Text','Сохранить и запустить','FontSize',14, ...
+    'FontWeight','bold','ButtonPushedFcn',@(~,~) startMain());
+inputControls = struct('mu1',mu1,'muRatio',muRatio,'L',L, ...
+    'sigma',sigma,'theta',theta,'MeniscusModel',MeniscusModel, ...
+    'IncludeAadd',IncludeAadd,'H_P0',H_P0,'GeometryMode',GeometryMode, ...
+    'AreaType',AreaType,'RandomMin',RandomMin,'RandomMax',RandomMax, ...
+    'RandomN_rows',RandomN_rows,'RandomN_cols',RandomN_cols,'H_A',H_A,'V_A',V_A, ...
+    'SaveStepsMode',SaveStepsMode,'SaveEveryN',SaveEveryN);
+inputNames = fieldnames(inputControls);
+savedInputs = struct();
+if isfile(settingsFile)
+    try
+        saved = load(settingsFile);
+        savedInputs = saved.inputs;
+        if isfield(saved,'previousGeometry')
+            previousGeometry = saved.previousGeometry;
+        end
+    catch exception
+        uialert(fig,['Не удалось прочитать сохранённые параметры: ' exception.message],'Ошибка');
+    end
+elseif isappdata(groot,'capillaryGridRunInputs')
+    % При первом сохранении переносим ввод из прежней версии окна.
+    savedInputs = getappdata(groot,'capillaryGridRunInputs');
+end
+for inputIndex = 1:numel(inputNames)
+    inputName = inputNames{inputIndex};
+    inputControls.(inputName).Tag = inputName;
+    if isfield(savedInputs,inputName)
+        inputControls.(inputName).Value = savedInputs.(inputName);
+    end
+end
+if isfield(previousGeometry,'Ah') && ~isfield(savedInputs,'GeometryMode')
+    GeometryMode.Value = 'Использовать предыдущую';
+end
+changeAreaType([],[]);
+changeGeometryMode([],[]);
+changeSaveStepsMode([],[]);
+groupHeaders(1).Value = true;
+toggleGroup(groupHeaders(1));
+
+% Размер окна под монитор; поля и шрифты сохраняют читаемый размер, есть прокрутка.
+rootUnits = get(groot,'Units'); set(groot,'Units','pixels');
+monitors = get(groot,'MonitorPositions'); pointer = get(groot,'PointerLocation');
 set(groot,'Units',rootUnits);
-monitorIndex = find(pointer(1)>=monitors(:,1) & ...
-    pointer(1)<monitors(:,1)+monitors(:,3) & ...
-    pointer(2)>=monitors(:,2) & ...
-    pointer(2)<monitors(:,2)+monitors(:,4),1);
+monitorIndex = find(pointer(1)>=monitors(:,1) & pointer(1)<monitors(:,1)+monitors(:,3) & ...
+    pointer(2)>=monitors(:,2) & pointer(2)<monitors(:,2)+monitors(:,4),1);
 if isempty(monitorIndex), monitorIndex=1; end
 screen = monitors(monitorIndex,:);
-windowScale = min([0.9, (screen(3)-100)/700, (screen(4)-160)/950]);
-controls = findall(fig,'-property','Position');
-controls(controls==fig) = [];
-for k=1:numel(controls)
-    if isprop(controls(k),'AutoResizeChildren')
-        controls(k).AutoResizeChildren = 'off';
-    end
-end
-for k=1:numel(controls)
-    controls(k).Position = controls(k).Position*windowScale;
-    if isprop(controls(k),'FontSize')
-        controls(k).FontSize = controls(k).FontSize*windowScale;
-    end
-end
-windowSize = [700 950]*windowScale;
-fig.Position = [screen(1:2)+(screen(3:4)-windowSize)/2, windowSize];
-fig.AutoResizeChildren = 'on';
-RandomPanel.AutoResizeChildren = 'on';
-MatrixPanel.AutoResizeChildren = 'on';
+windowSize = min([760 820],screen(3:4)-[80 160]);
+fig.Position = [screen(1:2)+(screen(3:4)-windowSize)/2,windowSize];
 fig.Visible = 'on';
 
-
-%% ============================================================
-% Изменение способа задания площади
-% ============================================================
-
-function changeAreaType(~, ~)
-
-    switch AreaType.Value
-
-        case 'Случайная'
-
-            RandomPanel.Visible = 'on';
-            MatrixPanel.Visible = 'off';
-
-        case 'Матрица площадей'
-
-            RandomPanel.Visible = 'off';
-            MatrixPanel.Visible = 'on';
-
+function toggleGroup(header)
+    index = header.UserData;
+    heights = sections.RowHeight;
+    if header.Value
+        heights{2*index} = groupHeights(index);
+        groupPanels(index).Visible = 'on';
+        header.Text = ['▼ ' groupNames{index}];
+    else
+        heights{2*index} = 0;
+        groupPanels(index).Visible = 'off';
+        header.Text = ['▶ ' groupNames{index}];
     end
-
+    sections.RowHeight = heights;
 end
 
+function ok = saveInputs(~,~,geometryToSave)
+    ok = false;
+    if nargin < 3, geometryToSave = previousGeometry; end
+    inputs = struct();
+    for savedIndex = 1:numel(inputNames)
+        savedName = inputNames{savedIndex};
+        inputs.(savedName) = inputControls.(savedName).Value;
+    end
+    temporaryFile = [tempname(fileparts(settingsFile)) '.mat'];
+    try
+        settings = struct('inputs',inputs,'previousGeometry',geometryToSave);
+        save(temporaryFile,'-struct','settings');
+        [success,message] = movefile(temporaryFile,settingsFile,'f');
+        if ~success, error('run:SaveFailed','%s',message); end
+        previousGeometry = geometryToSave;
+        setappdata(groot,'capillaryGridRunInputs',inputs);
+        statusLabel.Text = 'Параметры сохранены.';
+        ok = true;
+    catch exception
+        if isfile(temporaryFile), delete(temporaryFile); end
+        uialert(fig,['Не удалось сохранить параметры: ' exception.message],'Ошибка');
+    end
+end
 
-%% ============================================================
-% Формирование Ah и Av
-% ============================================================
+function changeGeometryMode(~,~)
+    if strcmp(GeometryMode.Value,'Использовать предыдущую')
+        NewGeometryPanel.Visible = 'off';
+        geometryLayout.RowHeight = {30,0};
+        groupHeights(2) = 50;
+    else
+        NewGeometryPanel.Visible = 'on';
+        geometryLayout.RowHeight = {30,250};
+        groupHeights(2) = 290;
+    end
+    toggleGroup(groupHeaders(2));
+end
+
+function changeAreaType(~,~)
+    if strcmp(AreaType.Value,'Случайная')
+        RandomPanel.Visible = 'on'; MatrixPanel.Visible = 'off';
+        network.RowHeight = {30,200,0};
+    else
+        RandomPanel.Visible = 'off'; MatrixPanel.Visible = 'on';
+        network.RowHeight = {30,0,200};
+    end
+end
+
+function changeSaveStepsMode(~,~)
+    if strcmp(SaveStepsMode.Value,'Сохранять каждый N шаг')
+        saveEveryNLabel.Visible = 'on'; SaveEveryN.Visible = 'on';
+        resultsGrid.RowHeight = {30,30};
+        groupHeights(3) = 92;
+    else
+        saveEveryNLabel.Visible = 'off'; SaveEveryN.Visible = 'off';
+        resultsGrid.RowHeight = {30,0};
+        groupHeights(3) = 54;
+    end
+    toggleGroup(groupHeaders(3));
+end
+
+%% Формирование Ah и Av
 
 function [Ah, Av, ok] = getGeometry()
 
     ok = false;
+    if strcmp(GeometryMode.Value,'Использовать предыдущую')
+        Ah = []; Av = [];
+        if ~isfield(previousGeometry,'Ah') || ~isfield(previousGeometry,'Av')
+            uialert(fig,'Предыдущая сеть ещё не сохранена. Выберите «Задать новую».','Ошибка');
+            return;
+        end
+        Ah = previousGeometry.Ah;
+        Av = previousGeometry.Av;
+        ok = true;
+        return;
+    end
 
     switch AreaType.Value
 
@@ -607,27 +494,15 @@ end
 
 function previewNetwork(~, ~)
 
-    switch AreaType.Value
-
-        case 'Случайная'
-
-            N_rows = RandomN_rows.Value;
-            N_cols = RandomN_cols.Value;
-
-
-        case 'Матрица площадей'
-
-            [Ah, Av, ok] = getGeometry();
-
-            if ~ok
-                return;
-            end
-
-            % Определяем размеры сети из матриц
-
-            N_rows = size(Ah, 1);
-            N_cols = size(Av, 2);
-
+    if strcmp(GeometryMode.Value,'Использовать предыдущую') || ...
+            strcmp(AreaType.Value,'Матрица площадей')
+        [Ah, Av, ok] = getGeometry();
+        if ~ok, return; end
+        N_rows = size(Ah, 1);
+        N_cols = size(Av, 2);
+    else
+        N_rows = RandomN_rows.Value;
+        N_cols = RandomN_cols.Value;
     end
 
 
@@ -672,7 +547,16 @@ end
 % Создание Net и запуск main
 % ============================================================
 
-function startMain(generateReport)
+function startMain()
+
+    saveStride = 1;
+    if strcmp(SaveStepsMode.Value,'Сохранять каждый N шаг')
+        saveStride = SaveEveryN.Value;
+        if ~isfinite(saveStride) || saveStride < 1 || saveStride ~= fix(saveStride)
+            uialert(fig,'N должно быть положительным целым числом.','Ошибка');
+            return;
+        end
+    end
 
     %% Проверка параметров модели
 
@@ -744,13 +628,14 @@ function startMain(generateReport)
     if ~ok
         return;
     end
+    if ~saveInputs([],[],struct('Ah',Ah,'Av',Av)), return; end
 
 
     %% Параметры Net
 
     Net.H.P0 = H_P0.Value;
 
-    Net.VerticalBC = VerticalBC.Value;
+    Net.VerticalBC = false; % В run верхняя и нижняя границы всегда закрыты.
 
     Net.mu1 = mu1.Value;
     Net.mu2 = muRatio.Value * Net.mu1;
@@ -779,11 +664,10 @@ function startMain(generateReport)
 
     %% Запуск main
 
+    simulationStorageOptions('set',saveStride);
+    storageCleanup = onCleanup(@() simulationStorageOptions('reset'));
     evalin('base', 'main');
 
-    if generateReport
-        showSimulationReportDialog(evalin('base', 'simulationResult'));
-    end
 
 
     %% Закрытие окна
