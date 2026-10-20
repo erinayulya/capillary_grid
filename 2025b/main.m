@@ -99,15 +99,20 @@ simulationReport('snapshot',Net);
 
 %% ---------- Основной цикл ------------------
 
+stationarity = [];
 while true
 
-    if any(Net.H.State(:,end)==2)
+    stationarity = checkSteadyState(Net,stationarity);
+    if stationarity.justReached
+        disp('Вторая фаза достигла правой границы.');
+    end
+    if stationarity.stop
 
         break
 
     end
 
-    answer = simulationReport('next',Net);
+    answer = simulationReport('next',Net,stationarity);
 
     if strcmp(answer,'Стоп')
         break
@@ -140,4 +145,4 @@ catch exception
     rethrow(exception);
 end
 
-simulationResult = simulationReport('finish',Net);
+simulationResult = simulationReport('finish',Net,stationarity);

@@ -2,6 +2,7 @@ function [output, restoredNet] = simulationReport(action, Net, options, outputRo
 %SIMULATIONREPORT Record states/timing and present the continuation dialog.
 % Does not modify Net, call model/solver functions, or execute simulation steps.
 % start: options is recordResults. fail: options is the original MException.
+% next/finish: optional checkSteadyState monitor (outside Net).
 % fail returns the last accepted Net as its second output; no model calls.
 % One active reporting session; every start resets its state.
 persistent session
@@ -53,13 +54,15 @@ switch action
         session.snapshots = session.snapshots + 1;
     case 'next'
         requireSession(session);
-        if session.recordResults && (~isfinite(Net.dt) || Net.dt <= 0)
+        confirm = nargin >= 3 && isstruct(options) && ...
+            isfield(options,'confirm') && options.confirm;
+        if session.recordResults && (~isfinite(Net.dt) || Net.dt <= 0) && ~confirm
             session.result.status = 'Остановка: нет конечного положительного шага dt.';
             output = 'Стоп';
         elseif session.recordResults && session.result.steps >= session.maxSteps
             session.result.status = sprintf('Остановка: достигнут лимит %d шагов.',session.maxSteps);
             output = 'Стоп';
-        elseif session.recordResults
+        elseif session.recordResults || confirm
             output = 'Продолжить';
         else
             output = questdlg(sprintf('Следующий шаг\n dt = %.5e c',Net.dt), ...
@@ -71,11 +74,17 @@ switch action
         end
         if strcmp(output,'Продолжить')
             session.dtUsed = Net.dt;
+            if confirm, session.dtUsed = 0; end
             [session.result,session.timer] = measureComputeTime('start',session.result);
         end
     case 'finish'
         requireSession(session);
-        if any(Net.H.State(:,end)==2)
+        if nargin >= 3 && isstruct(options) && isfield(options,'stop')
+            session.result.stationarity = options;
+            if options.stop
+                session.result.status = 'Установилось стационарное течение.';
+            end
+        elseif any(Net.H.State(:,end)==2)
             session.result.status = 'Вторая фаза достигла правой границы.';
         end
         if session.recordResults

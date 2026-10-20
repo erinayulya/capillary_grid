@@ -89,6 +89,7 @@ elseif ids(1) ~= 0
     issue('ERROR','FILES',files(1).name,'Отсутствует начальный шаг 0.');
 end
 previous = []; previousId = NaN; last = []; lastId = NaN;
+stationarity = [];
 for k = 1:numel(files)
     context = fullfile(folder,files(k).name);
     fprintf(fid,'ШАГ %g: %s\n',ids(k),context);
@@ -117,6 +118,7 @@ for k = 1:numel(files)
         end
         previous = sample; previousId = ids(k);
         last = sample; lastId = ids(k);
+        stationarity = checkSteadyState(N,stationarity);
         checked = checked+1;
     catch exception
         issue('ERROR','DATA','MAT/Net','Проверка шага не завершена: %s',exception.message);
@@ -281,7 +283,9 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
             end
         end
         dt = newSample.dtUsed;
-        if ~isfinite(dt) || dt<=0 || ~sameTime(dt,O.dt,tol)
+        confirmation = dt==0 && O.dt==Inf && any(O.H.State(:,end)==2) && ...
+            ~any(old.State==1 & old.Move==1);
+        if ~confirmation && (~isfinite(dt) || dt<=0 || ~sameTime(dt,O.dt,tol))
             issue('ERROR','10','dtUsed','dtUsed=%.17g с, прежний Net.dt=%.17g с; нужен конечный положительный прежний dt.',dt,O.dt);
             return;
         end
@@ -450,7 +454,14 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
         end
         breakthrough = any(N.H.State(:,end)==2);
         declaredBreak = contains(status,'достигла правой границы');
-        if breakthrough
+        if strcmp(status,'Установилось стационарное течение.')
+            if ~isfield(R,'stationarity') || isempty(stationarity) || ~stationarity.stop
+                issue('ERROR','11','result.status', ...
+                    'Стационарность после прорыва не подтверждается сохранёнными шагами.');
+            end
+            return;
+        end
+        if breakthrough && ~isfield(R,'stationarity')
             fprintf(fid,'Правая граница достигнута.\n');
             if ~declaredBreak
                 issue('ERROR','11','result.status','Правая граница достигнута, но указан другой статус.');
@@ -461,7 +472,7 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
             issue('ERROR','11','result.status','Заявлен прорыв, но на правой границе нет State=2.');
         end
         C = capillaries(N); m = C.State==1; allowed = waterPath(C);
-        fprintf(fid,'Без прорыва: менисков=%d, Move=1: %d, Move=2: %d, Move=3: %d.\n', ...
+        fprintf(fid,'Менисков=%d, Move=1: %d, Move=2: %d, Move=3: %d.\n', ...
             nnz(m),nnz(m & C.Move==1),nnz(m & C.Move==2),nnz(m & C.Move==3));
         for e = find(m)'
             if C.closed(e)
