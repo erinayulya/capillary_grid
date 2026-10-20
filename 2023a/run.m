@@ -47,17 +47,17 @@ uilabel(physical,'Text','Поверхностное натяжение σ, Н/м
 sigma = uieditfield(physical,'numeric','Value',7e-2,'FontSize',14);
 uilabel(physical,'Text','Угол смачивания θ, рад','FontSize',14);
 theta = uieditfield(physical,'numeric','Value',pi/4,'FontSize',14);
+pressureLabel = uilabel(physical,'Text','Давление на левой границе P₀, Па','FontSize',14);
+pressureLabel.Layout.Row = 6; pressureLabel.Layout.Column = 1;
+H_P0 = uieditfield(physical,'numeric','Value',1500,'FontSize',14);
+H_P0.Layout.Row = 6; H_P0.Layout.Column = 2;
 uilabel(physical,'Text','Модель движения мениска','FontSize',14);
 MeniscusModel = uidropdown(physical, ...
     'Items',{'Один режим (вязкий)','Два режима (плато и вязкий)'}, ...
     'ItemsData',[1 2],'Value',2,'FontSize',14);
 IncludeAadd = uicheckbox(physical,'Text','Учитывать A_add в вязком режиме', ...
     'Value',true,'FontSize',14);
-IncludeAadd.Layout.Row = 7; IncludeAadd.Layout.Column = [1 2];
-pressureLabel = uilabel(physical,'Text','Давление на левой границе P₀, Па','FontSize',14);
-pressureLabel.Layout.Row = 8; pressureLabel.Layout.Column = 1;
-H_P0 = uieditfield(physical,'numeric','Value',1500,'FontSize',14);
-H_P0.Layout.Row = 8; H_P0.Layout.Column = 2;
+IncludeAadd.Layout.Row = 8; IncludeAadd.Layout.Column = [1 2];
 
 %% Параметры сети: матрицы или настройки случайных площадей
 geometryLayout = uigridlayout(groupPanels(2),[2 2], ...
@@ -159,8 +159,10 @@ end
 changeAreaType([],[]);
 changeGeometryMode([],[]);
 changeSaveStepsMode([],[]);
-groupHeaders(1).Value = true;
-toggleGroup(groupHeaders(1));
+for groupIndex = 1:numel(groupHeaders)
+    groupHeaders(groupIndex).Value = true;
+    toggleGroup(groupHeaders(groupIndex));
+end
 
 % Размер окна под монитор; поля и шрифты сохраняют читаемый размер, есть прокрутка.
 rootUnits = get(groot,'Units'); set(groot,'Units','pixels');

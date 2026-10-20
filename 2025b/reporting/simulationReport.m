@@ -1,5 +1,5 @@
 function [output, restoredNet] = simulationReport(action, Net, options, outputRoot, maxSteps)
-%SIMULATIONREPORT Record states/timing and present the continuation dialog.
+%SIMULATIONREPORT Record states/timing and show calculation progress.
 % Does not modify Net, call model/solver functions, or execute simulation steps.
 % start: options is recordResults. fail: options is the original MException.
 % next/finish: optional checkSteadyState monitor (outside Net).
@@ -22,12 +22,14 @@ switch action
         saveStride = simulationStorageOptions('take');
         session = struct('recordResults',recordResults,'maxSteps',maxSteps, ...
             'parameters',Net,'lastNet',Net,'snapshots',0,'dtUsed',0,'timer',[], ...
-            'lastStepComputeTime',0,'lastDtUsed',0,'lastTotalComputeTime',0,'lastSavedStep',-1);
+            'lastStepComputeTime',[],'lastDtUsed',0,'lastTotalComputeTime',0, ...
+            'lastSavedStep',-1,'progress',[]);
         session.result = struct('startedAt',datestr(now,'yyyy-mm-dd HH:MM:SS'), ...
             'totalTime',0,'totalComputeTime',0,'failedComputeTime',0, ...
             'steps',0,'status','Расчёт не завершён.','directory','','pdf','', ...
             'saveStride',saveStride);
         if recordResults
+            session.progress = printSimulationProgress('start',session.result,[],[]);
             if ~isfolder(outputRoot), mkdir(outputRoot); end
             baseName = ['run_' datestr(now,'yyyymmdd_HHMMSS')];
             session.result.directory = fullfile(outputRoot,baseName);
@@ -82,6 +84,12 @@ switch action
             end
         end
         if strcmp(output,'Продолжить')
+            if session.recordResults
+                monitor = [];
+                if nargin >= 3 && isstruct(options), monitor = options; end
+                session.progress = printSimulationProgress('update',session.result, ...
+                    session.lastStepComputeTime,session.progress,monitor);
+            end
             session.dtUsed = Net.dt;
             if confirm, session.dtUsed = 0; end
             [session.result,session.timer] = measureComputeTime('start',session.result);
@@ -99,10 +107,12 @@ switch action
         if session.recordResults
             if session.snapshots > 0, session = saveLastStep(session); end
             saveSummary(session,Net);
+            printSimulationProgress('finish',session.result, ...
+                session.lastStepComputeTime,session.progress);
             fprintf('Результаты: %s\n',session.result.directory);
         end
         output = session.result;
-        disp(output.status);
+        if ~session.recordResults, disp(output.status); end
         session = [];
     case 'fail'
         requireSession(session);
@@ -116,6 +126,8 @@ switch action
             try
                 if session.snapshots > 0, session = saveLastStep(session); end
                 saveSummary(session,restoredNet);
+                printSimulationProgress('fail',session.result, ...
+                    session.lastStepComputeTime,session.progress);
                 fprintf('Результаты: %s\n',session.result.directory);
             catch reportError
                 % A reporting failure must not replace the original calculation error.
@@ -124,7 +136,7 @@ switch action
             end
         end
         output = session.result;
-        disp(output.status);
+        if ~session.recordResults, disp(output.status); end
         session = [];
     otherwise
         error('simulationReport:UnknownAction','Неизвестное действие: %s',action);
