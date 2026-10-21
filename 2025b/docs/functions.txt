@@ -586,7 +586,7 @@ reporting/printSimulationProgress.m (20.10.2026):
   Внутри решателя вывода и фонового таймера нет; MAT-периодичность независима.
 
 visualization/writeSaturationPressureGif.m (20.10.2026):
-  gifPath = writeSaturationPressureGif(directory,gifPath,frameDelay)
+  gifPath = writeSaturationPressureGif(directory,gifPath,frameDelay,showMeniscus)
   Независимая сборка GIF из step_*.mat указанной папки; summary.mat не нужен.
   Без directory открывает выбор папки; отмена возвращает ''. По умолчанию
   gifPath=directory/saturation_pressure.gif; frameDelay=0.1 с (0.01..655).
@@ -660,3 +660,11 @@ reporting/networkOilSaturation.m (21.10.2026):
   В drawNetwork это относится также к образцу текущего мениска в легенде;
   прошлые серые мениски и Move сохраняют прежнее отображение.
   21.10.2026: диаметр точек давления увеличен вдвое (площадь scatter умножена на 4).
+
+Отображение мениска в GIF (21.10.2026):
+  run показывает галочку «Отображать мениск» под временем кадра,
+  только при включённой визуализации; по умолчанию true. Значение сохраняется
+  в inputs.GifShowMeniscus и передаётся четвёртым аргументом экспортёра.
+  showMeniscus=true сохраняет прежнюю отрисовку; false скрывает красные
+  точки и пункт «Мениск» в легенде. При вызове с 1–3 аргументами действует true.
+  MATLAB и тесты не запускались по просьбе пользователя.

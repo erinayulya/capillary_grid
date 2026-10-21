@@ -103,8 +103,8 @@ H_A = uitextarea(matrixGrid,'Value',{'[1 1 1 1;',' 1 2 1 1;', ...
 V_A = uitextarea(matrixGrid,'Value',{'[1 1 1;',' 1 1 1;', ...
     ' 1 5 1;',' 1 1 1]*pi*(100e-6)^2'},'FontSize',13);
 %% Результаты: сохраняемые шаги (не влияет на расчёт)
-resultsGrid = uigridlayout(groupPanels(3),[4 2], ...
-    'ColumnWidth',{'1x',310},'RowHeight',{30,0,30,0}, ...
+resultsGrid = uigridlayout(groupPanels(3),[5 2], ...
+    'ColumnWidth',{'1x',310},'RowHeight',{30,0,30,0,0}, ...
     'Padding',[10 8 10 8],'RowSpacing',8);
 uilabel(resultsGrid,'Text','Сколько шагов сохранять','FontSize',14);
 SaveStepsMode = uidropdown(resultsGrid, ...
@@ -124,6 +124,9 @@ frameDelayLabel.Layout.Row = 4; frameDelayLabel.Layout.Column = 1;
 GifFrameDelay = uieditfield(resultsGrid,'numeric','Value',0.1, ...
     'Limits',[0.01 655],'FontSize',14,'Visible','off');
 GifFrameDelay.Layout.Row = 4; GifFrameDelay.Layout.Column = 2;
+GifShowMeniscus = uicheckbox(resultsGrid,'Text','Отображать мениск', ...
+    'Value',true,'FontSize',14,'Visible','off');
+GifShowMeniscus.Layout.Row = 5; GifShowMeniscus.Layout.Column = [1 2];
 
 %% Кнопки и восстановление явно сохранённого ввода
 statusLabel = uilabel(layout,'Text','','Tag','saveStatus','FontSize',13);
@@ -141,7 +144,8 @@ inputControls = struct('mu1',mu1,'muRatio',muRatio,'L',L, ...
     'AreaType',AreaType,'RandomMin',RandomMin,'RandomMax',RandomMax, ...
     'RandomN_rows',RandomN_rows,'RandomN_cols',RandomN_cols,'H_A',H_A,'V_A',V_A, ...
     'SaveStepsMode',SaveStepsMode,'SaveEveryN',SaveEveryN, ...
-    'VisualizeSatPressure',VisualizeSatPressure,'GifFrameDelay',GifFrameDelay);
+    'VisualizeSatPressure',VisualizeSatPressure,'GifFrameDelay',GifFrameDelay, ...
+    'GifShowMeniscus',GifShowMeniscus);
 inputNames = fieldnames(inputControls);
 savedInputs = struct();
 if isfile(settingsFile)
@@ -253,21 +257,23 @@ end
 function changeSaveStepsMode(~,~)
     if strcmp(SaveStepsMode.Value,'Сохранять каждый N шаг')
         saveEveryNLabel.Visible = 'on'; SaveEveryN.Visible = 'on';
-        resultsGrid.RowHeight = {30,30,30,0};
+        resultsGrid.RowHeight = {30,30,30,0,0};
         groupHeights(3) = 130;
     else
         saveEveryNLabel.Visible = 'off'; SaveEveryN.Visible = 'off';
-        resultsGrid.RowHeight = {30,0,30,0};
+        resultsGrid.RowHeight = {30,0,30,0,0};
         groupHeights(3) = 92;
     end
     if VisualizeSatPressure.Value
         frameDelayLabel.Visible = 'on'; GifFrameDelay.Visible = 'on';
+        GifShowMeniscus.Visible = 'on';
         heights = resultsGrid.RowHeight;
-        heights{4} = 30;
+        heights{4} = 30; heights{5} = 30;
         resultsGrid.RowHeight = heights;
-        groupHeights(3) = groupHeights(3) + 38;
+        groupHeights(3) = groupHeights(3) + 76;
     else
         frameDelayLabel.Visible = 'off'; GifFrameDelay.Visible = 'off';
+        GifShowMeniscus.Visible = 'off';
     end
     toggleGroup(groupHeaders(3));
 end
@@ -573,6 +579,7 @@ end
 function startMain()
 
     frameDelay = GifFrameDelay.Value;
+    showMeniscus = GifShowMeniscus.Value;
     if VisualizeSatPressure.Value && ...
             (~isfinite(frameDelay) || frameDelay < 0.01 || frameDelay > 655)
         uialert(fig,'Время одного кадра должно быть от 0.01 до 655 секунд.','Ошибка');
@@ -702,7 +709,7 @@ function startMain()
     if createVisualization
         completedResult = evalin('base','simulationResult');
         try
-            gifPath = writeSaturationPressureGif(completedResult.directory,[],frameDelay);
+            gifPath = writeSaturationPressureGif(completedResult.directory,[],frameDelay,showMeniscus);
             fprintf('GIF сатурации и давления: %s\n',gifPath);
         catch exception
             warning('run:VisualizationFailed', ...

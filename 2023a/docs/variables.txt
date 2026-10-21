@@ -449,3 +449,13 @@ capillaryWidth: общая толщина капилляра и диаметр �
   пункты; 3 в GIF, 4 в drawNetwork. Красный маркер без обводки.
 markerSize для давления: 4*max(8,min(150,2200/prod(networkSize))), пункты²;
   21.10.2026 площадь увеличена в 4 раза, диаметр точки — в 2 раза.
+
+Отображение мениска в GIF (21.10.2026), вне Net:
+GifShowMeniscus: uicheckbox в строке 5 resultsGrid под временем кадра,
+  «Отображать мениск», Value=true по умолчанию. Строка 30 px видна
+  только при VisualizeSatPressure=true, иначе её высота 0.
+inputs.GifShowMeniscus: сохранённое значение в run-settings.mat;
+  отсутствие поля в старых настройках оставляет true.
+showMeniscus: значение из run/startMain, необязательный четвёртый аргумент
+  writeSaturationPressureGif; logical/binary, по умолчанию true. При false
+  скрыты красные маркеры менисков и соответствующая запись легенды.
