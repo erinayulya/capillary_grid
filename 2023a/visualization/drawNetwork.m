@@ -12,6 +12,7 @@ axis(targetAxes,'equal')
 
 Nx = Net.H.Nx;
 Ny = Net.H.Ny;
+capillaryWidth = 4; % points; also the current meniscus diameter
 
 c0 = [0 0.4470 0.7410];   % первая фаза
 c2 = [0 0 0];             % вторая фаза (черный)
@@ -40,13 +41,13 @@ for i = 1:Net.H.Ny
 
                 plot(targetAxes,[x1 x2],[y y],...
                     'Color',c0,...
-                    'LineWidth',4);
+                    'LineWidth',capillaryWidth);
 
             case 2
 
                 plot(targetAxes,[x1 x2],[y y],...
                     'Color',c2,...
-                    'LineWidth',4);
+                    'LineWidth',capillaryWidth);
 
             case 1
 
@@ -56,11 +57,11 @@ for i = 1:Net.H.Ny
 
                     plot(targetAxes,[x1 xm],[y y],...
                         'Color',c2,...
-                        'LineWidth',4);
+                        'LineWidth',capillaryWidth);
 
                     plot(targetAxes,[xm x2],[y y],...
                         'Color',c0,...
-                        'LineWidth',4);
+                        'LineWidth',capillaryWidth);
 
                 else
 
@@ -68,18 +69,18 @@ for i = 1:Net.H.Ny
 
                     plot(targetAxes,[x1 xm],[y y],...
                         'Color',c0,...
-                        'LineWidth',4);
+                        'LineWidth',capillaryWidth);
 
                     plot(targetAxes,[xm x2],[y y],...
                         'Color',c2,...
-                        'LineWidth',4);
+                        'LineWidth',capillaryWidth);
 
                 end
 
                 plot(targetAxes,xm,y,...
                     'ro',...
                     'MarkerFaceColor','r',...
-                    'MarkerSize',8);
+                    'MarkerSize',capillaryWidth,'MarkerEdgeColor','none');
 
         end
 
@@ -111,7 +112,7 @@ for i = 1:Net.V.Ny
 
             plot(targetAxes,[x x],[y1 y2],...
                 'Color',[0.6 0.6 0.6],...
-                'LineWidth',4);
+                'LineWidth',capillaryWidth);
 
         else
 
@@ -121,13 +122,13 @@ for i = 1:Net.V.Ny
 
                 plot(targetAxes,[x x],[y1 y2],...
                     'Color',c0,...
-                    'LineWidth',4);
+                    'LineWidth',capillaryWidth);
 
             case 2
 
                 plot(targetAxes,[x x],[y1 y2],...
                     'Color',c2,...
-                    'LineWidth',4);
+                    'LineWidth',capillaryWidth);
 
             case 1
 
@@ -137,11 +138,11 @@ for i = 1:Net.V.Ny
 
                     plot(targetAxes,[x x],[y1 ym],...
                         'Color',c2,...
-                        'LineWidth',4);
+                        'LineWidth',capillaryWidth);
 
                     plot(targetAxes,[x x],[ym y2],...
                         'Color',c0,...
-                        'LineWidth',4);
+                        'LineWidth',capillaryWidth);
 
                 else
 
@@ -149,18 +150,18 @@ for i = 1:Net.V.Ny
 
                     plot(targetAxes,[x x],[y1 ym],...
                         'Color',c0,...
-                        'LineWidth',4);
+                        'LineWidth',capillaryWidth);
 
                     plot(targetAxes,[x x],[ym y2],...
                         'Color',c2,...
-                        'LineWidth',4);
+                        'LineWidth',capillaryWidth);
 
                 end
 
                 plot(targetAxes,x,ym,...
                     'ro',...
                     'MarkerFaceColor','r',...
-                    'MarkerSize',8);
+                    'MarkerSize',capillaryWidth,'MarkerEdgeColor','none');
 
         end
 
@@ -288,7 +289,7 @@ legendHandles = gobjects(0);
 legendLabels = {};
 
 legendHandles(end+1) = plot(targetAxes,NaN,NaN,'ro', ...
-    'LineStyle','none','MarkerFaceColor','r','MarkerSize',8);
+    'LineStyle','none','MarkerFaceColor','r','MarkerSize',capillaryWidth,'MarkerEdgeColor','none');
 legendLabels{end+1} = sprintf('Мениск');
 if isfield(Net.H,'Sat_prev')
     legendHandles(end+1) = plot(targetAxes,NaN,NaN,'o', ...

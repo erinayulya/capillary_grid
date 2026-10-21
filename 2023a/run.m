@@ -16,7 +16,7 @@ sections = uigridlayout(layout,[6 1],'ColumnWidth',{'1x'}, ...
     'RowSpacing',8,'Scrollable','on');
 sections.Layout.Row = 1;
 groupNames = {'Физические параметры','Параметры сети','Результаты'};
-groupHeights = [330 290 54];
+groupHeights = [330 290 92];
 groupPanels = gobjects(1,3);
 groupHeaders = gobjects(1,3);
 for groupIndex = 1:3
@@ -103,8 +103,8 @@ H_A = uitextarea(matrixGrid,'Value',{'[1 1 1 1;',' 1 2 1 1;', ...
 V_A = uitextarea(matrixGrid,'Value',{'[1 1 1;',' 1 1 1;', ...
     ' 1 5 1;',' 1 1 1]*pi*(100e-6)^2'},'FontSize',13);
 %% Результаты: сохраняемые шаги (не влияет на расчёт)
-resultsGrid = uigridlayout(groupPanels(3),[2 2], ...
-    'ColumnWidth',{'1x',310},'RowHeight',{30,0}, ...
+resultsGrid = uigridlayout(groupPanels(3),[4 2], ...
+    'ColumnWidth',{'1x',310},'RowHeight',{30,0,30,0}, ...
     'Padding',[10 8 10 8],'RowSpacing',8);
 uilabel(resultsGrid,'Text','Сколько шагов сохранять','FontSize',14);
 SaveStepsMode = uidropdown(resultsGrid, ...
@@ -113,6 +113,17 @@ SaveStepsMode = uidropdown(resultsGrid, ...
 saveEveryNLabel = uilabel(resultsGrid,'Text','N','FontSize',14,'Visible','off');
 SaveEveryN = uieditfield(resultsGrid,'numeric','Value',2, ...
     'FontSize',14,'Visible','off');
+VisualizeSatPressure = uicheckbox(resultsGrid, ...
+    'Text','Визуализация сатурации и давления','Value',false,'FontSize',14, ...
+    'ValueChangedFcn',@changeSaveStepsMode);
+VisualizeSatPressure.Layout.Row = 3;
+VisualizeSatPressure.Layout.Column = [1 2];
+frameDelayLabel = uilabel(resultsGrid,'Text','Время одного кадра, с', ...
+    'FontSize',14,'Visible','off');
+frameDelayLabel.Layout.Row = 4; frameDelayLabel.Layout.Column = 1;
+GifFrameDelay = uieditfield(resultsGrid,'numeric','Value',0.1, ...
+    'Limits',[0.01 655],'FontSize',14,'Visible','off');
+GifFrameDelay.Layout.Row = 4; GifFrameDelay.Layout.Column = 2;
 
 %% Кнопки и восстановление явно сохранённого ввода
 statusLabel = uilabel(layout,'Text','','Tag','saveStatus','FontSize',13);
@@ -129,7 +140,8 @@ inputControls = struct('mu1',mu1,'muRatio',muRatio,'L',L, ...
     'IncludeAadd',IncludeAadd,'H_P0',H_P0,'GeometryMode',GeometryMode, ...
     'AreaType',AreaType,'RandomMin',RandomMin,'RandomMax',RandomMax, ...
     'RandomN_rows',RandomN_rows,'RandomN_cols',RandomN_cols,'H_A',H_A,'V_A',V_A, ...
-    'SaveStepsMode',SaveStepsMode,'SaveEveryN',SaveEveryN);
+    'SaveStepsMode',SaveStepsMode,'SaveEveryN',SaveEveryN, ...
+    'VisualizeSatPressure',VisualizeSatPressure,'GifFrameDelay',GifFrameDelay);
 inputNames = fieldnames(inputControls);
 savedInputs = struct();
 if isfile(settingsFile)
@@ -241,12 +253,21 @@ end
 function changeSaveStepsMode(~,~)
     if strcmp(SaveStepsMode.Value,'Сохранять каждый N шаг')
         saveEveryNLabel.Visible = 'on'; SaveEveryN.Visible = 'on';
-        resultsGrid.RowHeight = {30,30};
-        groupHeights(3) = 92;
+        resultsGrid.RowHeight = {30,30,30,0};
+        groupHeights(3) = 130;
     else
         saveEveryNLabel.Visible = 'off'; SaveEveryN.Visible = 'off';
-        resultsGrid.RowHeight = {30,0};
-        groupHeights(3) = 54;
+        resultsGrid.RowHeight = {30,0,30,0};
+        groupHeights(3) = 92;
+    end
+    if VisualizeSatPressure.Value
+        frameDelayLabel.Visible = 'on'; GifFrameDelay.Visible = 'on';
+        heights = resultsGrid.RowHeight;
+        heights{4} = 30;
+        resultsGrid.RowHeight = heights;
+        groupHeights(3) = groupHeights(3) + 38;
+    else
+        frameDelayLabel.Visible = 'off'; GifFrameDelay.Visible = 'off';
     end
     toggleGroup(groupHeaders(3));
 end
@@ -551,6 +572,13 @@ end
 
 function startMain()
 
+    frameDelay = GifFrameDelay.Value;
+    if VisualizeSatPressure.Value && ...
+            (~isfinite(frameDelay) || frameDelay < 0.01 || frameDelay > 655)
+        uialert(fig,'Время одного кадра должно быть от 0.01 до 655 секунд.','Ошибка');
+        return;
+    end
+
     saveStride = 1;
     if strcmp(SaveStepsMode.Value,'Сохранять каждый N шаг')
         saveStride = SaveEveryN.Value;
@@ -668,9 +696,19 @@ function startMain()
 
     simulationStorageOptions('set',saveStride);
     storageCleanup = onCleanup(@() simulationStorageOptions('reset'));
+    % main closes the input window: capture the checkbox before calling it.
+    createVisualization = VisualizeSatPressure.Value;
     evalin('base', 'main');
-
-
+    if createVisualization
+        completedResult = evalin('base','simulationResult');
+        try
+            gifPath = writeSaturationPressureGif(completedResult.directory,[],frameDelay);
+            fprintf('GIF сатурации и давления: %s\n',gifPath);
+        catch exception
+            warning('run:VisualizationFailed', ...
+                'Расчёт сохранён, но GIF не создан: %s',exception.message);
+        end
+    end
 
     %% Закрытие окна
 

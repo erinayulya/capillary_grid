@@ -86,6 +86,11 @@ checkCase('horizontal_reverse',horizontalReverseSequence(),'Вторая фаз�
 % Новая вязкая оценка dt; продвижение остаётся по прежним Q.
 current=viscousSequence();
 checkCase('viscous_dt',current,'Остановка: достигнут лимит 1 шагов.','',true);
+% Numerical flow noise at an oil node must not require a new meniscus.
+samples=current; samples{1}.Net.V.Q(1)=-8.271806125530277e-25;
+checkCase('birth_noise_up',samples,'Остановка: достигнут лимит 1 шагов.','',true);
+samples=current; samples{1}.Net.V.Q(2)=8.271806125530277e-25;
+checkCase('birth_noise_down',samples,'Остановка: достигнут лимит 1 шагов.','',true);
 samples=current; samples{1}.Net.dt=2*samples{1}.Net.dt;
 checkCase('wrong_viscous_dt',samples,'Остановка: достигнут лимит 1 шагов.','[ERROR][TIME]',false);
 

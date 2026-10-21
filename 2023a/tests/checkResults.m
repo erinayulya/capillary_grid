@@ -337,7 +337,11 @@ fprintf('Проверка: %s | ERROR=%d WARNING=%d\n',folder,errors,warnings);
         source = old.first;
         source(old.Q<0) = old.second(old.Q<0);
         born = false(size(old.State));
-        eligible = old.State==0 & old.Q~=0 & source>0;
+        birthTolerance = 0;
+        if isCurrentLaw(newSample)
+            birthTolerance = 64*eps(max(abs(old.Q)));
+        end
+        eligible = old.State==0 & abs(old.Q)>birthTolerance & source>0;
         born(eligible) = oilNodes(source(eligible));
         expectedState(born)=1; expectedSat(born)=0;
         expectedDir(born)=sign(old.Q(born));

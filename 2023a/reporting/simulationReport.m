@@ -29,7 +29,7 @@ switch action
             'steps',0,'status','Расчёт не завершён.','directory','','pdf','', ...
             'saveStride',saveStride);
         if recordResults
-            session.progress = printSimulationProgress('start',session.result,[],[]);
+            session.progress = printSimulationProgress('start',session.result,[],[],[],Net);
             if ~isfolder(outputRoot), mkdir(outputRoot); end
             baseName = ['run_' datestr(now,'yyyymmdd_HHMMSS')];
             session.result.directory = fullfile(outputRoot,baseName);
@@ -88,7 +88,7 @@ switch action
                 monitor = [];
                 if nargin >= 3 && isstruct(options), monitor = options; end
                 session.progress = printSimulationProgress('update',session.result, ...
-                    session.lastStepComputeTime,session.progress,monitor);
+                    session.lastStepComputeTime,session.progress,monitor,Net);
             end
             session.dtUsed = Net.dt;
             if confirm, session.dtUsed = 0; end
@@ -108,7 +108,7 @@ switch action
             if session.snapshots > 0, session = saveLastStep(session); end
             saveSummary(session,Net);
             printSimulationProgress('finish',session.result, ...
-                session.lastStepComputeTime,session.progress);
+                session.lastStepComputeTime,session.progress,[],Net);
             fprintf('Результаты: %s\n',session.result.directory);
         end
         output = session.result;
@@ -127,7 +127,7 @@ switch action
                 if session.snapshots > 0, session = saveLastStep(session); end
                 saveSummary(session,restoredNet);
                 printSimulationProgress('fail',session.result, ...
-                    session.lastStepComputeTime,session.progress);
+                    session.lastStepComputeTime,session.progress,[],restoredNet);
                 fprintf('Результаты: %s\n',session.result.directory);
             catch reportError
                 % A reporting failure must not replace the original calculation error.

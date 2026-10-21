@@ -4,11 +4,14 @@
 % и чья насыщенность достигла 100%. Для такого капилляра 
 % меняются: state=1 -> state=2.
 % Затем на каждом вызове проверяются все узлы с нефтью: в водяных
-% соседях создаётся мениск, если расход направлен от такого узла.
+% соседях создаётся мениск, если расход направлен от такого узла
+% и превышает допуск численного шума. Сами расходы не изменяются.
 
 function Net = calcState(Net)
 
     tol = 1e-12;
+    qMax = max(abs([Net.H.Q(:); Net.V.Q(:)]));
+    qTol = 64*eps(qMax); % м3/с; только для определения направления рождения
     
     %%-------------------------------------------------------
     %% Горизонтальные капилляры
@@ -56,7 +59,7 @@ function Net = calcState(Net)
         (Net.V.State(2:end,:)==1 & Net.V.Dir(2:end,:)>0);
     [rows,cols] = find(oilNodes);
     for k = 1:numel(rows)
-        Net = processNode(Net,rows(k),cols(k)+1);
+        Net = processNode(Net,rows(k),cols(k)+1,qTol);
     end
 end
 
@@ -68,14 +71,14 @@ end
 % от узла с мениском, то мениск создается. 
 % Меняется: state=0 -> state=1.
 
-function Net = processNode(Net,row,col)
+function Net = processNode(Net,row,col,qTol)
 
     %-------------------------------------------------------
     % Горизонтальный вправо
     %-------------------------------------------------------
     if row >= 1 && row <= Net.H.Ny && ...
             col >= 1 && col <= Net.H.Nx
-        if Net.H.State(row,col) == 0 && Net.H.Q(row,col) > 0
+        if Net.H.State(row,col) == 0 && Net.H.Q(row,col) > qTol
             Net.H.State(row,col) = 1;
             Net.H.Sat(row,col) = 0;
             Net.H.Move(row,col) = 3;
@@ -88,7 +91,7 @@ function Net = processNode(Net,row,col)
     % Горизонтальный влево
     %-------------------------------------------------------
     if row >= 1 && row <= Net.H.Ny && col > 1
-        if Net.H.State(row,col-1) == 0 && Net.H.Q(row,col-1) < 0
+        if Net.H.State(row,col-1) == 0 && Net.H.Q(row,col-1) < -qTol
             Net.H.State(row,col-1) = 1;
             Net.H.Sat(row,col-1) = 0;
             Net.H.Move(row,col-1) = 3;
@@ -101,7 +104,7 @@ function Net = processNode(Net,row,col)
     % Вертикальный вниз
     %-------------------------------------------------------
     if row < Net.V.Ny && col > 1 && col-1 <= Net.V.Nx
-        if Net.V.State(row+1,col-1) == 0 && Net.V.Q(row+1,col-1) > 0
+        if Net.V.State(row+1,col-1) == 0 && Net.V.Q(row+1,col-1) > qTol
             Net.V.State(row+1,col-1) = 1;
             Net.V.Sat(row+1,col-1) = 0;
             Net.V.Move(row+1,col-1) = 3;
@@ -114,7 +117,7 @@ function Net = processNode(Net,row,col)
     % Вертикальный вверх
     %-------------------------------------------------------
     if row >= 1 && col > 1 && col-1 <= Net.V.Nx
-        if Net.V.State(row,col-1) == 0 && Net.V.Q(row,col-1) < 0
+        if Net.V.State(row,col-1) == 0 && Net.V.Q(row,col-1) < -qTol
             Net.V.State(row,col-1) = 1;
             Net.V.Sat(row,col-1) = 0;
             Net.V.Move(row,col-1) = 3;
