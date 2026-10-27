@@ -5,7 +5,7 @@ resetSimulationWorkspace(true);
 projectFolder = fileparts(mfilename('fullpath'));
 settingsFile = fullfile(fileparts(projectFolder),'run-settings.mat');
 previousGeometry = struct();
-meshFolder = fullfile(projectFolder,'saved_mesh');
+meshFolder = fullfile(projectFolder,'mesh','saved_mesh');
 
 %% Окно: раскрывающиеся группы и постоянные кнопки внизу
 fig = uifigure('Name','Параметры расчёта','Visible','off', ...

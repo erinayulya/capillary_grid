@@ -43,9 +43,7 @@ function Net = calcCanMove(Net)
             dir = Net.H.Dir(i,j);
             move = false;
             if dir > 0
-                if j == 1
-                    move = true;
-                elseif j == Net.H.Nx
+                if j == Net.H.Nx
                     move = true;
                 elseif WaterConnectedH(i,j+1) || ...
                         WaterConnectedV(i,j) || ...

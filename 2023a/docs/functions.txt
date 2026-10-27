@@ -1,8 +1,8 @@
 СПРАВОЧНИК ФУНКЦИЙ
-Дата сверки: 27.10.2026 (сохранённые сети и импорт матриц площадей).
+Дата сверки: 27.10.2026 (папка mesh и перенос checkSteadyState в solver).
 Локальные функции перечислены рядом с основной.
 
-checkSteadyState.m: monitor = checkSteadyState(Net,monitor)
+solver/checkSteadyState.m: monitor = checkSteadyState(Net,monitor)
   monitor=[] начинает новое наблюдение. Функция не меняет Net и не вызывает модель.
   До первого H.State(:,end)==2 не оценивает стационарность. При прорыве один раз
   выдаёт justReached=true; сообщение выводит main. Запоминает breakthroughTime, с.
@@ -128,18 +128,18 @@ run.m: run()
   Новых расчётных полей Net нет; основной цикл и проверка диаметров остаются в main.
   Требуется графическая среда MATLAB; layout/прокрутка доступны в R2023a.
 
-readAreaMatrix.m: A = readAreaMatrix(filePath)
+mesh/readAreaMatrix.m: A = readAreaMatrix(filePath)
   Excel .xlsx/.xls: readcell первого листа; только числовые ячейки без заголовков
   и пропусков внутри матрицы. .m: одна матрица [числа], необязательное A =,
   комментарии %, переносы ... и показатели e/E/d/D. Выражения и команды не
   исполняются. Результат — положительная конечная действительная матрица, м².
   Ошибки: MissingFile, Extension, ExcelFormat, MFormat либо validateattributes.
 
-validateMeshGeometry.m: validateMeshGeometry(Ah,Av)
+mesh/validateMeshGeometry.m: validateMeshGeometry(Ah,Av)
   Проверяет значения (м²) и размеры Ah=nRows×(nCols+1), Av=(nRows+1)×nCols.
   Данные не изменяет. При несовпадении размеров — SizeMismatch.
 
-savedMesh.m: result = savedMesh(action,folder,...)
+mesh/savedMesh.m: result = savedMesh(action,folder,...)
   list: отсортированный cell-массив имён MAT без расширения, {} при пустой папке.
   load(name): читает и проверяет mesh (formatVersion=1,name,Ah,Av,areaUnit='m^2').
   save(name,Ah,Av[,overwrite]): проверяет имя/матрицы, создаёт папку при отсутствии,
@@ -210,7 +210,9 @@ model/calcCanMove.m: Net = calcCanMove(Net)
   Остальным менискам задаёт Move=1 только как допуск по связности.
   Не читает P, не вычисляет Pc и не выбирает удержание по давлению.
   Окончательные Move=1/3 определяет solvePressureFlow по текущему решению.
-  Связность и необратимость Move=2 не изменены.
+  При Dir>0 входные H(:,1) требуют водного пути через правый внутренний узел,
+  как и внутренние капилляры; исключение осталось для правой выходной границы.
+  Обход calcWaterConnectivity и необратимость Move=2 сохранены.
 
 model/calcWaterConnectivity.m:
   [WaterConnectedH,WaterConnectedV] = calcWaterConnectivity(Net)
@@ -281,9 +283,9 @@ visualization/plotNetwork.m: plotNetwork(N_cols,N_rows)
   Не рассчитывает давления и фазы, не получает и не изменяет Net.
 
 setupProject.m: setupProject()
-  Подключает корень, model, solver, visualization, reporting по расположению файла.
+  Подключает корень, model, solver, visualization, reporting, mesh по расположению файла.
   Вызывается main и run.
-  Не вызывает savepath.
+  Не вызывает savepath; mesh/saved_mesh с данными в path не добавляется.
 
 reporting/resetSimulationWorkspace.m:
   resetSimulationWorkspace(openingInterface)
@@ -485,7 +487,7 @@ tests/checkResults.m: reports = checkResults(target, options)
     capillaries: временная объединённая таблица H(:)/V(:), перепады и топология.
     edgeName: ориентация и индексы капилляра для отчёта.
     waterPath: независимый обход Sat==0 от правой/открытой нижней границы,
-      затем проверка выхода воды с учётом специальных случаев calcCanMove.
+      затем проверка выхода воды; для входных H(:,1) также нужен водный путь.
     nextTime(C,N): независимая вязкая оценка dt при наличии xi;
       для архивной физики без xi сохраняет прежнюю оценку по Q.
       Старые MAT с xi и прежним dt могут дать TIME: правило шага изменено.

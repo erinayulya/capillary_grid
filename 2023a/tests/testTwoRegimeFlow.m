@@ -19,6 +19,20 @@ classdef testTwoRegimeFlow < matlab.unittest.TestCase
         end
     end
     methods (Test)
+        function inletRequiresWaterOutlet(testCase)
+            N=smallNet(1,3);
+            N.H.State(2)=2; N.H.Sat(2)=1;
+            C=calcCanMove(N);
+            testCase.verifyEqual(C.H.Move,[2 0]);
+            testCase.verifyEqual(C.H.Sat,N.H.Sat);
+        end
+        function rightOutletRemainsAllowed(testCase)
+            N=smallNet(1,3);
+            N.H.State=[2 1]; N.H.Sat=[1 0.2];
+            N.H.Dir=[0 1]; N.H.Move=[0 3];
+            C=calcCanMove(N);
+            testCase.verifyEqual(C.H.Move,[0 1]);
+        end
         function connectivityDoesNotReadPressure(testCase)
             N=smallNet(1,3);
             N.V.State(1)=1;N.V.Dir(1)=1;N.V.Move(1)=3;

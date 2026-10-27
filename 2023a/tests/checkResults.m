@@ -671,9 +671,7 @@ end
 destination=C.second; destination(C.Dir<0)=C.first(C.Dir<0);
 allowed=false(n,1);
 for e = find(C.State==1 & ~C.closed)'
-    if C.leftH(e) && C.Dir(e)>0
-        allowed(e)=true; % Специальный случай входа в calcCanMove.
-    elseif destination(e)==0
+    if destination(e)==0
         allowed(e)=~C.leftH(e); % Выход влево текущая модель не разрешает.
     else
         neighbours=find(incidence(destination(e),:));
