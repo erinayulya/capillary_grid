@@ -5,6 +5,7 @@ resetSimulationWorkspace(true);
 projectFolder = fileparts(mfilename('fullpath'));
 settingsFile = fullfile(fileparts(projectFolder),'run-settings.mat');
 previousGeometry = struct();
+meshFolder = fullfile(projectFolder,'saved_mesh');
 
 %% Окно: раскрывающиеся группы и постоянные кнопки внизу
 fig = uifigure('Name','Параметры расчёта','Visible','off', ...
@@ -60,20 +61,20 @@ IncludeAadd = uicheckbox(physical,'Text','Учитывать A_add в вязко
 IncludeAadd.Layout.Row = 8; IncludeAadd.Layout.Column = [1 2];
 
 %% Параметры сети: матрицы или настройки случайных площадей
-geometryLayout = uigridlayout(groupPanels(2),[2 2], ...
-    'ColumnWidth',{'1x',310},'RowHeight',{30,250}, ...
+geometryLayout = uigridlayout(groupPanels(2),[3 2], ...
+    'ColumnWidth',{'1x',310},'RowHeight',{30,292,0}, ...
     'Padding',[0 0 0 0],'RowSpacing',4);
 uilabel(geometryLayout,'Text','Геометрия сети','FontSize',14);
 GeometryMode = uidropdown(geometryLayout, ...
-    'Items',{'Использовать предыдущую','Задать новую'}, ...
-    'Value','Задать новую','FontSize',14,'ValueChangedFcn',@changeGeometryMode);
+    'Items',{'Использовать предыдущую','Создать новую','Выбрать из сохраненных'}, ...
+    'Value','Создать новую','FontSize',14,'ValueChangedFcn',@changeGeometryMode);
 NewGeometryPanel = uipanel(geometryLayout,'BorderType','none','Tag','newGeometryPanel');
 NewGeometryPanel.Layout.Row = 2; NewGeometryPanel.Layout.Column = [1 2];
-network = uigridlayout(NewGeometryPanel,[3 2], ...
-    'ColumnWidth',{'1x',310},'RowHeight',{30,0,200}, ...
+network = uigridlayout(NewGeometryPanel,[5 2], ...
+    'ColumnWidth',{'1x',310},'RowHeight',{30,0,200,0,32}, ...
     'Padding',[10 8 10 8],'RowSpacing',4);
 uilabel(network,'Text','Площадь капилляров','FontSize',14);
-AreaType = uidropdown(network,'Items',{'Матрица площадей','Случайная'}, ...
+AreaType = uidropdown(network,'Items',{'Матрица площадей','Случайная','Загрузить'}, ...
     'Value','Матрица площадей','FontSize',14,'ValueChangedFcn',@changeAreaType);
 RandomPanel = uipanel(network,'BorderType','none','Visible','off');
 RandomPanel.Layout.Row = 2; RandomPanel.Layout.Column = [1 2];
@@ -102,6 +103,36 @@ H_A = uitextarea(matrixGrid,'Value',{'[1 1 1 1;',' 1 2 1 1;', ...
     ' 1 1 1 1]*pi*(100e-6)^2'},'FontSize',13);
 V_A = uitextarea(matrixGrid,'Value',{'[1 1 1;',' 1 1 1;', ...
     ' 1 5 1;',' 1 1 1]*pi*(100e-6)^2'},'FontSize',13);
+ImportPanel = uipanel(network,'BorderType','none','Visible','off','Tag','importGeometryPanel');
+ImportPanel.Layout.Row = 4; ImportPanel.Layout.Column = [1 2];
+importGrid = uigridlayout(ImportPanel,[3 2], ...
+    'ColumnWidth',{'1.1x','1x'},'RowHeight',{54,54,48}, ...
+    'Padding',[0 0 0 0],'RowSpacing',8);
+uibutton(importGrid,'Text',sprintf('Загрузить матрицу площадей\nгоризонтальных капилляров'), ...
+    'FontSize',12,'Tag','loadHorizontalAreas', ...
+    'ButtonPushedFcn',@(~,~) loadAreaFile('H'));
+ImportedHPath = uieditfield(importGrid,'text','Editable','off','FontSize',12);
+uibutton(importGrid,'Text',sprintf('Загрузить матрицу площадей\nвертикальных капилляров'), ...
+    'FontSize',12,'Tag','loadVerticalAreas', ...
+    'ButtonPushedFcn',@(~,~) loadAreaFile('V'));
+ImportedVPath = uieditfield(importGrid,'text','Editable','off','FontSize',12);
+importHelp = uilabel(importGrid,'Text', ...
+    {'Площади в м². Excel: первый лист, только числа.', ...
+     '.m: одна числовая матрица A = [...], без вычислений.'},'FontSize',12);
+importHelp.Layout.Row = 3; importHelp.Layout.Column = [1 2];
+saveMeshButton = uibutton(network,'Text','Сохранить сеть','FontSize',14, ...
+    'Tag','saveMeshButton','ButtonPushedFcn',@saveNetwork);
+saveMeshButton.Layout.Row = 5; saveMeshButton.Layout.Column = [1 2];
+SavedGeometryPanel = uipanel(geometryLayout,'BorderType','none', ...
+    'Visible','off','Tag','savedGeometryPanel');
+SavedGeometryPanel.Layout.Row = 3; SavedGeometryPanel.Layout.Column = [1 2];
+savedGrid = uigridlayout(SavedGeometryPanel,[2 2], ...
+    'ColumnWidth',{'1x',310},'RowHeight',{30,42},'Padding',[10 8 10 8]);
+uilabel(savedGrid,'Text','Сохранённая сеть','FontSize',14);
+SavedMeshName = uidropdown(savedGrid,'Items',{'Сохранённых сетей нет'}, ...
+    'ItemsData',{''},'Value','','FontSize',14);
+meshLocation = uilabel(savedGrid,'Text',meshFolder,'Tooltip',meshFolder,'FontSize',12);
+meshLocation.Layout.Row = 2; meshLocation.Layout.Column = [1 2];
 %% Результаты: сохраняемые шаги (не влияет на расчёт)
 resultsGrid = uigridlayout(groupPanels(3),[5 2], ...
     'ColumnWidth',{'1x',310},'RowHeight',{30,0,30,0,0}, ...
@@ -143,6 +174,7 @@ inputControls = struct('mu1',mu1,'muRatio',muRatio,'L',L, ...
     'IncludeAadd',IncludeAadd,'H_P0',H_P0,'GeometryMode',GeometryMode, ...
     'AreaType',AreaType,'RandomMin',RandomMin,'RandomMax',RandomMax, ...
     'RandomN_rows',RandomN_rows,'RandomN_cols',RandomN_cols,'H_A',H_A,'V_A',V_A, ...
+    'ImportedHPath',ImportedHPath,'ImportedVPath',ImportedVPath,'SavedMeshName',SavedMeshName, ...
     'SaveStepsMode',SaveStepsMode,'SaveEveryN',SaveEveryN, ...
     'VisualizeSatPressure',VisualizeSatPressure,'GifFrameDelay',GifFrameDelay, ...
     'GifShowMeniscus',GifShowMeniscus);
@@ -162,13 +194,24 @@ elseif isappdata(groot,'capillaryGridRunInputs')
     % При первом сохранении переносим ввод из прежней версии окна.
     savedInputs = getappdata(groot,'capillaryGridRunInputs');
 end
+% Migrate the old label and tolerate a saved choice absent in this release's library.
+if isfield(savedInputs,'GeometryMode') && strcmp(savedInputs.GeometryMode,'Задать новую')
+    savedInputs.GeometryMode = 'Создать новую';
+end
+refreshMeshList('');
 for inputIndex = 1:numel(inputNames)
     inputName = inputNames{inputIndex};
     inputControls.(inputName).Tag = inputName;
     if isfield(savedInputs,inputName)
+        if strcmp(inputName,'SavedMeshName') && ...
+                ~ismember(savedInputs.(inputName),SavedMeshName.ItemsData)
+            continue;
+        end
         inputControls.(inputName).Value = savedInputs.(inputName);
     end
 end
+ImportedHPath.Tooltip = ImportedHPath.Value;
+ImportedVPath.Tooltip = ImportedVPath.Value;
 if isfield(previousGeometry,'Ah') && ~isfield(savedInputs,'GeometryMode')
     GeometryMode.Value = 'Использовать предыдущую';
 end
@@ -232,25 +275,96 @@ function ok = saveInputs(~,~,geometryToSave)
 end
 
 function changeGeometryMode(~,~)
-    if strcmp(GeometryMode.Value,'Использовать предыдущую')
-        NewGeometryPanel.Visible = 'off';
-        geometryLayout.RowHeight = {30,0};
-        groupHeights(2) = 50;
-    else
-        NewGeometryPanel.Visible = 'on';
-        geometryLayout.RowHeight = {30,250};
-        groupHeights(2) = 290;
+    NewGeometryPanel.Visible = 'off';
+    SavedGeometryPanel.Visible = 'off';
+    switch GeometryMode.Value
+        case 'Использовать предыдущую'
+            geometryLayout.RowHeight = {30,0,0};
+            groupHeights(2) = 50;
+        case 'Выбрать из сохраненных'
+            refreshMeshList(SavedMeshName.Value);
+            SavedGeometryPanel.Visible = 'on';
+            geometryLayout.RowHeight = {30,0,98};
+            groupHeights(2) = 142;
+        otherwise
+            NewGeometryPanel.Visible = 'on';
+            geometryLayout.RowHeight = {30,292,0};
+            groupHeights(2) = 340;
     end
     toggleGroup(groupHeaders(2));
 end
 
 function changeAreaType(~,~)
-    if strcmp(AreaType.Value,'Случайная')
-        RandomPanel.Visible = 'on'; MatrixPanel.Visible = 'off';
-        network.RowHeight = {30,200,0};
-    else
-        RandomPanel.Visible = 'off'; MatrixPanel.Visible = 'on';
-        network.RowHeight = {30,0,200};
+    RandomPanel.Visible = 'off'; MatrixPanel.Visible = 'off'; ImportPanel.Visible = 'off';
+    switch AreaType.Value
+        case 'Случайная'
+            RandomPanel.Visible = 'on';
+            network.RowHeight = {30,200,0,0,32};
+        case 'Загрузить'
+            ImportPanel.Visible = 'on';
+            network.RowHeight = {30,0,0,200,32};
+        otherwise
+            MatrixPanel.Visible = 'on';
+            network.RowHeight = {30,0,200,0,32};
+    end
+end
+
+function refreshMeshList(selection)
+    names = savedMesh('list',meshFolder);
+    SavedMeshName.Items = [{'Выберите сеть...'},names];
+    SavedMeshName.ItemsData = [{''},names];
+    SavedMeshName.Value = '';
+    SavedMeshName.Enable = 'on';
+    if isempty(names)
+        SavedMeshName.Items = {'Сохранённых сетей нет'};
+        SavedMeshName.ItemsData = {''};
+        SavedMeshName.Enable = 'off';
+    elseif ismember(selection,names)
+        SavedMeshName.Value = selection;
+    end
+end
+
+function loadAreaFile(orientation)
+    [fileName,folder] = uigetfile( ...
+        {'*.xlsx;*.xls;*.m','Матрицы площадей (*.xlsx, *.xls, *.m)'}, ...
+        'Выберите матрицу площадей, м²');
+    if isequal(fileName,0), return; end
+    filePath = fullfile(folder,fileName);
+    try
+        readAreaMatrix(filePath);
+        if strcmp(orientation,'H'), control = ImportedHPath; else, control = ImportedVPath; end
+        control.Value = filePath;
+        control.Tooltip = filePath;
+        statusLabel.Text = 'Матрица загружена. Согласованность размеров проверяется при сохранении сети или запуске.';
+    catch exception
+        uialert(fig,exception.message,'Не удалось загрузить матрицу');
+    end
+end
+
+function saveNetwork(~,~)
+    [Ah,Av,ok] = getGeometry();
+    if ~ok, return; end
+    answer = inputdlg('Название сети:','Сохранить сеть',[1 60]);
+    if isempty(answer), return; end
+    name = strtrim(answer{1});
+    try
+        try
+            filePath = savedMesh('save',meshFolder,name,Ah,Av);
+        catch exception
+            if ~strcmp(exception.identifier,'savedMesh:Exists'), rethrow(exception); end
+            choice = uiconfirm(fig,sprintf('Заменить сохранённую сеть «%s»?',name), ...
+                'Сеть уже существует','Options',{'Заменить','Отмена'}, ...
+                'DefaultOption',2,'CancelOption',2);
+            if ~strcmp(choice,'Заменить'), return; end
+            filePath = savedMesh('save',meshFolder,name,Ah,Av,true);
+        end
+        refreshMeshList(name);
+        GeometryMode.Value = 'Выбрать из сохраненных';
+        changeGeometryMode([],[]);
+        statusLabel.Text = ['Сеть сохранена: ' filePath];
+        statusLabel.Tooltip = filePath;
+    catch exception
+        uialert(fig,exception.message,'Не удалось сохранить сеть');
     end
 end
 
@@ -286,7 +400,7 @@ function [Ah, Av, ok] = getGeometry()
     if strcmp(GeometryMode.Value,'Использовать предыдущую')
         Ah = []; Av = [];
         if ~isfield(previousGeometry,'Ah') || ~isfield(previousGeometry,'Av')
-            uialert(fig,'Предыдущая сеть ещё не сохранена. Выберите «Задать новую».','Ошибка');
+            uialert(fig,'Предыдущая сеть ещё не сохранена. Выберите «Создать новую».','Ошибка');
             return;
         end
         Ah = previousGeometry.Ah;
@@ -294,8 +408,34 @@ function [Ah, Av, ok] = getGeometry()
         ok = true;
         return;
     end
+    if strcmp(GeometryMode.Value,'Выбрать из сохраненных')
+        Ah = []; Av = [];
+        if isempty(SavedMeshName.Value)
+            uialert(fig,'Выберите сеть из списка. Если список пуст, сначала создайте и сохраните сеть.','Ошибка');
+            return;
+        end
+        try
+            mesh = savedMesh('load',meshFolder,SavedMeshName.Value);
+            Ah = mesh.Ah; Av = mesh.Av;
+            ok = true;
+        catch exception
+            uialert(fig,exception.message,'Не удалось прочитать сохранённую сеть');
+        end
+        return;
+    end
 
     switch AreaType.Value
+
+        case 'Загрузить'
+            Ah = []; Av = [];
+            try
+                Ah = readAreaMatrix(ImportedHPath.Value);
+                Av = readAreaMatrix(ImportedVPath.Value);
+                validateMeshGeometry(Ah,Av);
+            catch exception
+                uialert(fig,exception.message,'Ошибка матриц площадей');
+                return;
+            end
 
         case 'Случайная'
 
@@ -523,8 +663,8 @@ end
 
 function previewNetwork(~, ~)
 
-    if strcmp(GeometryMode.Value,'Использовать предыдущую') || ...
-            strcmp(AreaType.Value,'Матрица площадей')
+    if ~strcmp(GeometryMode.Value,'Создать новую') || ...
+            ~strcmp(AreaType.Value,'Случайная')
         [Ah, Av, ok] = getGeometry();
         if ~ok, return; end
         N_rows = size(Ah, 1);
