@@ -1,7 +1,11 @@
-function [pdfPath,result] = writeSimulationReport(directory,stride)
+function [pdfPath,result] = writeSimulationReport(directory,stride,gifPath)
 %WRITESIMULATIONREPORT Rebuild a PDF from saved parameters and step MAT files.
 % Uses base MATLAB graphics; no Report Generator or external Python required.
 if nargin < 2, stride = 1; end
+if nargin < 3, gifPath = ''; end
+% With a GIF, include every saved frame and only P/H.Q/V.Q from solvedNet.
+frameReport = ~isempty(gifPath);
+if frameReport, frameInfo = imfinfo(gifPath); end
 data = load(fullfile(directory,'summary.mat'),'result','parameters');
 result = data.result;
 selectedSteps = selectSimulationReportSteps(result.steps,stride);
@@ -9,6 +13,7 @@ Net = data.parameters;
 pdfPath = fullfile(directory,'report.pdf');
 % Build separately so an earlier report survives an interrupted regeneration.
 temporaryPdf = [tempname(directory) '.pdf'];
+fileCleanup = onCleanup(@() deleteTemporaryPdf(temporaryPdf));
 maxRows = max(Net.H.Ny,Net.V.Ny);
 maxCols = max(Net.H.Nx,Net.V.Nx);
 width = max(900, 2*(70+maxCols*105)+90);
@@ -71,6 +76,14 @@ files = dir(fullfile(directory,'step_*.mat'));
 [~,order] = sort({files.name});
 stepNumbers = cellfun(@(name) sscanf(name,'step_%d'),{files.name});
 order = order(ismember(stepNumbers(order),selectedSteps));
+if frameReport
+    [~,order] = sort(stepNumbers);
+    if numel(frameInfo) ~= numel(order)
+        error('writeSimulationReport:FrameCount', ...
+            'Число кадров GIF (%d) не совпадает с числом сохранённых состояний (%d).', ...
+            numel(frameInfo),numel(order));
+    end
+end
 renderedSteps = zeros(1,numel(order));
 pageNumber = 1;
 for k = order
@@ -78,6 +91,14 @@ for k = order
     pageNumber = pageNumber + 1;
     renderedSteps(pageNumber-1) = snapshot.step;
     Net = snapshot.Net;
+    if frameReport
+        Net = snapshot.solvedNet;
+        canvas = page(fig,width,height);
+        drawGifPage(canvas,Net,snapshot,gifPath,pageNumber-1, ...
+            width,height,tableHeight,pageNumber);
+        exportPage(fig,temporaryPdf,width,height,true);
+        continue;
+    end
     canvas = page(fig,width,height);
     label(canvas,40,38,sprintf('Шаг %d',snapshot.step),20,true);
     label(canvas,40,72,sprintf('dt выполненного шага = %.12g с     t = %.12g с', ...
@@ -164,6 +185,35 @@ result.pdf = pdfPath;
 result.reportStride = stride;
 result.reportSteps = renderedSteps;
 save(fullfile(directory,'summary.mat'),'result','-append');
+end
+
+function drawGifPage(canvas,Net,snapshot,gifPath,frameIndex,width,height,tableHeight,pageNumber)
+label(canvas,40,38,sprintf('Шаг %d | Кадр GIF %d',snapshot.step,frameIndex),20,true);
+label(canvas,40,72,sprintf('dt выполненного шага = %.12g с     t = %.12g с', ...
+    snapshot.dtUsed,snapshot.elapsedTime),12,true);
+[pixels,palette] = imread(gifPath,frameIndex);
+if isempty(palette), rgb = pixels; else, rgb = ind2rgb(pixels,palette); end
+imageWidth = width-80;
+imageHeight = min(imageWidth*size(rgb,1)/size(rgb,2),height-2*tableHeight-190);
+imageTop = 100;
+imageAxes = axes(canvas.Parent,'Units','normalized', ...
+    'Position',[40/width (height-imageTop-imageHeight)/height imageWidth/width imageHeight/height]);
+image(imageAxes,rgb);
+axis(imageAxes,'image'); axis(imageAxes,'off');
+imageAxes.Toolbar.Visible = 'off';
+pressureY = imageTop+imageHeight+30;
+drawTable(canvas,Net.P,'Net.P - давление в узлах, Па',40,pressureY,width-80,'%.6g');
+flowY = pressureY+tableHeight+8;
+drawTable(canvas,Net.H.Q,'Net.H.Q - горизонтальные расходы, м³/с', ...
+    40,flowY,width/2-60,'%.6g');
+drawTable(canvas,Net.V.Q,'Net.V.Q - вертикальные расходы, м³/с', ...
+    40+width/2,flowY,width/2-60,'%.6g');
+label(canvas,40,height-20,sprintf('Страница %d | Данные соответствуют кадру GIF; индексы таблиц - MATLAB.', ...
+    pageNumber),9,false);
+end
+
+function deleteTemporaryPdf(file)
+if isfile(file), delete(file); end
 end
 
 function exportPage(fig,pdfPath,width,height,append)

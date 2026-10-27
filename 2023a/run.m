@@ -61,8 +61,8 @@ IncludeAadd = uicheckbox(physical,'Text','Учитывать A_add в вязко
 IncludeAadd.Layout.Row = 8; IncludeAadd.Layout.Column = [1 2];
 
 %% Параметры сети: матрицы или настройки случайных площадей
-geometryLayout = uigridlayout(groupPanels(2),[3 2], ...
-    'ColumnWidth',{'1x',310},'RowHeight',{30,292,0}, ...
+geometryLayout = uigridlayout(groupPanels(2),[4 2], ...
+    'ColumnWidth',{'1x',310},'RowHeight',{30,258,0,48}, ...
     'Padding',[0 0 0 0],'RowSpacing',4);
 uilabel(geometryLayout,'Text','Геометрия сети','FontSize',14);
 GeometryMode = uidropdown(geometryLayout, ...
@@ -70,8 +70,8 @@ GeometryMode = uidropdown(geometryLayout, ...
     'Value','Создать новую','FontSize',14,'ValueChangedFcn',@changeGeometryMode);
 NewGeometryPanel = uipanel(geometryLayout,'BorderType','none','Tag','newGeometryPanel');
 NewGeometryPanel.Layout.Row = 2; NewGeometryPanel.Layout.Column = [1 2];
-network = uigridlayout(NewGeometryPanel,[5 2], ...
-    'ColumnWidth',{'1x',310},'RowHeight',{30,0,200,0,32}, ...
+network = uigridlayout(NewGeometryPanel,[4 2], ...
+    'ColumnWidth',{'1x',310},'RowHeight',{30,0,200,0}, ...
     'Padding',[10 8 10 8],'RowSpacing',4);
 uilabel(network,'Text','Площадь капилляров','FontSize',14);
 AreaType = uidropdown(network,'Items',{'Матрица площадей','Случайная','Загрузить'}, ...
@@ -120,9 +120,6 @@ importHelp = uilabel(importGrid,'Text', ...
     {'Площади в м². Excel: первый лист, только числа.', ...
      '.m: одна числовая матрица A = [...], без вычислений.'},'FontSize',12);
 importHelp.Layout.Row = 3; importHelp.Layout.Column = [1 2];
-saveMeshButton = uibutton(network,'Text','Сохранить сеть','FontSize',14, ...
-    'Tag','saveMeshButton','ButtonPushedFcn',@saveNetwork);
-saveMeshButton.Layout.Row = 5; saveMeshButton.Layout.Column = [1 2];
 SavedGeometryPanel = uipanel(geometryLayout,'BorderType','none', ...
     'Visible','off','Tag','savedGeometryPanel');
 SavedGeometryPanel.Layout.Row = 3; SavedGeometryPanel.Layout.Column = [1 2];
@@ -133,9 +130,16 @@ SavedMeshName = uidropdown(savedGrid,'Items',{'Сохранённых сетей
     'ItemsData',{''},'Value','','FontSize',14);
 meshLocation = uilabel(savedGrid,'Text',meshFolder,'Tooltip',meshFolder,'FontSize',12);
 meshLocation.Layout.Row = 2; meshLocation.Layout.Column = [1 2];
+networkButtons = uigridlayout(geometryLayout,[1 3], ...
+    'ColumnWidth',{160,180,'1x'},'RowHeight',{'1x'},'Padding',[10 8 10 8]);
+networkButtons.Layout.Row = 4; networkButtons.Layout.Column = [1 2];
+uibutton(networkButtons,'Text','Нарисовать','FontSize',14, ...
+    'Tag','drawMeshButton','ButtonPushedFcn',@previewNetwork);
+saveMeshButton = uibutton(networkButtons,'Text','Сохранить сеть','FontSize',14, ...
+    'Tag','saveMeshButton','ButtonPushedFcn',@saveNetwork);
 %% Результаты: сохраняемые шаги (не влияет на расчёт)
-resultsGrid = uigridlayout(groupPanels(3),[5 2], ...
-    'ColumnWidth',{'1x',310},'RowHeight',{30,0,30,0,0}, ...
+resultsGrid = uigridlayout(groupPanels(3),[6 2], ...
+    'ColumnWidth',{'1x',310},'RowHeight',{30,0,30,0,0,0}, ...
     'Padding',[10 8 10 8],'RowSpacing',8);
 uilabel(resultsGrid,'Text','Сколько шагов сохранять','FontSize',14);
 SaveStepsMode = uidropdown(resultsGrid, ...
@@ -158,17 +162,28 @@ GifFrameDelay.Layout.Row = 4; GifFrameDelay.Layout.Column = 2;
 GifShowMeniscus = uicheckbox(resultsGrid,'Text','Отображать мениск', ...
     'Value',true,'FontSize',14,'Visible','off');
 GifShowMeniscus.Layout.Row = 5; GifShowMeniscus.Layout.Column = [1 2];
+GifCreatePdf = uicheckbox(resultsGrid,'Text','Сформировать PDF-отчет', ...
+    'Value',false,'FontSize',14,'Visible','off');
+GifCreatePdf.Layout.Row = 6; GifCreatePdf.Layout.Column = [1 2];
 
 %% Кнопки и восстановление явно сохранённого ввода
 statusLabel = uilabel(layout,'Text','','Tag','saveStatus','FontSize',13);
 statusLabel.Layout.Row = 2;
-buttons = uigridlayout(layout,[1 3],'ColumnWidth',{'1x','1x','1.5x'}, ...
-    'RowHeight',{'1x'},'Padding',[0 0 0 0]);
+buttons = uigridlayout(layout,[2 3],'ColumnWidth',{270,'1x','1.5x'}, ...
+    'RowHeight',{42,0},'RowSpacing',0,'Padding',[0 0 0 0]);
 buttons.Layout.Row = 3;
-uibutton(buttons,'Text','Нарисовать','FontSize',14,'ButtonPushedFcn',@previewNetwork);
-uibutton(buttons,'Text','Сохранить','FontSize',14,'ButtonPushedFcn',@saveInputs);
-uibutton(buttons,'Text','Сохранить и запустить','FontSize',14, ...
+checkLastButton = uibutton(buttons,'Text','Проверить последний расчет', ...
+    'FontSize',13,'Tag','checkLastSimulation','ButtonPushedFcn',@checkLastCalculation);
+checkLastButton.Layout.Row = 1; checkLastButton.Layout.Column = 1;
+saveButton = uibutton(buttons,'Text','Сохранить','FontSize',14,'ButtonPushedFcn',@saveInputs);
+saveButton.Layout.Row = 1; saveButton.Layout.Column = 2;
+startButton = uibutton(buttons,'Text','Сохранить и запустить','FontSize',14, ...
     'FontWeight','bold','ButtonPushedFcn',@(~,~) startMain());
+startButton.Layout.Row = 1; startButton.Layout.Column = 3;
+continueButton = uibutton(buttons,'Text','Продолжить прерванный расчет', ...
+    'FontSize',13,'Tag','continueLastSimulation','Visible','off','Enable','off', ...
+    'Tooltip','Проверка и данные восстановления подготовлены. Подключение продолжения в main.m пока не согласовано.');
+continueButton.Layout.Row = 2; continueButton.Layout.Column = 1;
 inputControls = struct('mu1',mu1,'muRatio',muRatio,'L',L, ...
     'sigma',sigma,'theta',theta,'MeniscusModel',MeniscusModel, ...
     'IncludeAadd',IncludeAadd,'H_P0',H_P0,'GeometryMode',GeometryMode, ...
@@ -177,7 +192,7 @@ inputControls = struct('mu1',mu1,'muRatio',muRatio,'L',L, ...
     'ImportedHPath',ImportedHPath,'ImportedVPath',ImportedVPath,'SavedMeshName',SavedMeshName, ...
     'SaveStepsMode',SaveStepsMode,'SaveEveryN',SaveEveryN, ...
     'VisualizeSatPressure',VisualizeSatPressure,'GifFrameDelay',GifFrameDelay, ...
-    'GifShowMeniscus',GifShowMeniscus);
+    'GifShowMeniscus',GifShowMeniscus,'GifCreatePdf',GifCreatePdf);
 inputNames = fieldnames(inputControls);
 savedInputs = struct();
 if isfile(settingsFile)
@@ -250,6 +265,29 @@ function toggleGroup(header)
     sections.RowHeight = heights;
 end
 
+function checkLastCalculation(~,~)
+    info = inspectLastSimulation(fullfile(projectFolder,'results'));
+    statusLabel.Text = info.message;
+    statusLabel.Tooltip = sprintf('%s\n%s\n%s',info.directory,info.status,info.message);
+    heights = layout.RowHeight;
+    if info.found && ~info.completed
+        continueButton.Visible = 'on';
+        buttons.RowHeight = {42,42}; buttons.RowSpacing = 6;
+        heights{3} = 90;
+        if ~info.canResume
+            continueButton.Tooltip = info.message;
+        else
+            continueButton.Tooltip = ['Последний исправный снимок проверен. ' ...
+                'Для запуска продолжения требуется согласованная ветка в main.m.'];
+        end
+    else
+        continueButton.Visible = 'off';
+        buttons.RowHeight = {42,0}; buttons.RowSpacing = 0;
+        heights{3} = 42;
+    end
+    layout.RowHeight = heights;
+end
+
 function ok = saveInputs(~,~,geometryToSave)
     ok = false;
     if nargin < 3, geometryToSave = previousGeometry; end
@@ -277,19 +315,21 @@ end
 function changeGeometryMode(~,~)
     NewGeometryPanel.Visible = 'off';
     SavedGeometryPanel.Visible = 'off';
+    saveMeshButton.Visible = 'off';
     switch GeometryMode.Value
         case 'Использовать предыдущую'
-            geometryLayout.RowHeight = {30,0,0};
-            groupHeights(2) = 50;
+            geometryLayout.RowHeight = {30,0,0,48};
+            groupHeights(2) = 92;
         case 'Выбрать из сохраненных'
             refreshMeshList(SavedMeshName.Value);
             SavedGeometryPanel.Visible = 'on';
-            geometryLayout.RowHeight = {30,0,98};
-            groupHeights(2) = 142;
+            geometryLayout.RowHeight = {30,0,98,48};
+            groupHeights(2) = 190;
         otherwise
             NewGeometryPanel.Visible = 'on';
-            geometryLayout.RowHeight = {30,292,0};
-            groupHeights(2) = 340;
+            saveMeshButton.Visible = 'on';
+            geometryLayout.RowHeight = {30,258,0,48};
+            groupHeights(2) = 350;
     end
     toggleGroup(groupHeaders(2));
 end
@@ -299,13 +339,13 @@ function changeAreaType(~,~)
     switch AreaType.Value
         case 'Случайная'
             RandomPanel.Visible = 'on';
-            network.RowHeight = {30,200,0,0,32};
+            network.RowHeight = {30,200,0,0};
         case 'Загрузить'
             ImportPanel.Visible = 'on';
-            network.RowHeight = {30,0,0,200,32};
+            network.RowHeight = {30,0,0,200};
         otherwise
             MatrixPanel.Visible = 'on';
-            network.RowHeight = {30,0,200,0,32};
+            network.RowHeight = {30,0,200,0};
     end
 end
 
@@ -371,23 +411,25 @@ end
 function changeSaveStepsMode(~,~)
     if strcmp(SaveStepsMode.Value,'Сохранять каждый N шаг')
         saveEveryNLabel.Visible = 'on'; SaveEveryN.Visible = 'on';
-        resultsGrid.RowHeight = {30,30,30,0,0};
+        resultsGrid.RowHeight = {30,30,30,0,0,0};
         groupHeights(3) = 130;
     else
         saveEveryNLabel.Visible = 'off'; SaveEveryN.Visible = 'off';
-        resultsGrid.RowHeight = {30,0,30,0,0};
+        resultsGrid.RowHeight = {30,0,30,0,0,0};
         groupHeights(3) = 92;
     end
     if VisualizeSatPressure.Value
         frameDelayLabel.Visible = 'on'; GifFrameDelay.Visible = 'on';
         GifShowMeniscus.Visible = 'on';
+        GifCreatePdf.Visible = 'on';
         heights = resultsGrid.RowHeight;
-        heights{4} = 30; heights{5} = 30;
+        heights{4} = 30; heights{5} = 30; heights{6} = 30;
         resultsGrid.RowHeight = heights;
-        groupHeights(3) = groupHeights(3) + 76;
+        groupHeights(3) = groupHeights(3) + 114;
     else
         frameDelayLabel.Visible = 'off'; GifFrameDelay.Visible = 'off';
         GifShowMeniscus.Visible = 'off';
+        GifCreatePdf.Visible = 'off';
     end
     toggleGroup(groupHeaders(3));
 end
@@ -845,15 +887,28 @@ function startMain()
     storageCleanup = onCleanup(@() simulationStorageOptions('reset'));
     % main closes the input window: capture the checkbox before calling it.
     createVisualization = VisualizeSatPressure.Value;
+    createPdf = GifCreatePdf.Value;
     evalin('base', 'main');
     if createVisualization
         completedResult = evalin('base','simulationResult');
+        gifPath = '';
         try
             gifPath = writeSaturationPressureGif(completedResult.directory,[],frameDelay,showMeniscus);
             fprintf('GIF сатурации и давления: %s\n',gifPath);
         catch exception
             warning('run:VisualizationFailed', ...
                 'Расчёт сохранён, но GIF не создан: %s',exception.message);
+        end
+        if createPdf && ~isempty(gifPath)
+            try
+                [pdfPath,completedResult] = writeSimulationReport( ...
+                    completedResult.directory,saveStride,gifPath);
+                assignin('base','simulationResult',completedResult);
+                fprintf('PDF-отчёт по кадрам GIF: %s\n',pdfPath);
+            catch exception
+                warning('run:ReportFailed', ...
+                    'Расчёт и GIF сохранены, но PDF-отчёт не создан: %s',exception.message);
+            end
         end
     end
 

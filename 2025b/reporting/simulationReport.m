@@ -6,6 +6,7 @@ function [output, restoredNet] = simulationReport(action, Net, options, outputRo
 % fail returns the last accepted Net as its second output; no model calls.
 % One active reporting session; every start resets its state.
 % MAT stride is consumed once from simulationStorageOptions; default is 1.
+% Default step limit is 10000*stride; an explicit maxSteps overrides it.
 persistent session
 output = [];
 restoredNet = Net;
@@ -16,10 +17,10 @@ switch action
         if nargin < 4
             outputRoot = fullfile(fileparts(fileparts(mfilename('fullpath'))),'results');
         end
-        if nargin < 5, maxSteps = 10000; end
         validateattributes(recordResults,{'logical'},{'scalar'});
-        validateattributes(maxSteps,{'numeric'},{'scalar','integer','positive','finite'});
         saveStride = simulationStorageOptions('take');
+        if nargin < 5, maxSteps = 10000*saveStride; end
+        validateattributes(maxSteps,{'numeric'},{'scalar','integer','positive','finite'});
         session = struct('recordResults',recordResults,'maxSteps',maxSteps, ...
             'parameters',Net,'lastNet',Net,'snapshots',0,'dtUsed',0,'timer',[], ...
             'lastStepComputeTime',[],'lastDtUsed',0,'lastTotalComputeTime',0, ...
