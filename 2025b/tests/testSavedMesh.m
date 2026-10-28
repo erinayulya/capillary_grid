@@ -125,11 +125,13 @@ classdef testSavedMesh < matlab.unittest.TestCase
                 'setappdata(groot,''savedMeshTestGif'',struct(''delay'',delay,''show'',show));\n' ...
                 'file=fullfile(folder,''saturation_pressure.gif'');\nend\n']));
             testCase.writeText(fullfile(app,'reporting','writeSimulationReport.m'),sprintf([ ...
-                'function [file,result] = writeSimulationReport(folder,stride,gif)\n' ...
-                'setappdata(groot,''savedMeshTestPdf'',struct(''stride'',stride,''gif'',gif));\n' ...
+                'function [file,result] = writeSimulationReport(folder,stride,gif,options)\n' ...
+                'setappdata(groot,''savedMeshTestPdf'',struct(''stride'',stride,''gif'',gif,''options'',options));\n' ...
                 'file=fullfile(folder,''report.pdf''); result=struct(''directory'',folder,''pdf'',file);\nend\n']));
             inputs = struct('GeometryMode','Задать новую');
-            save(fullfile(testCase.Folder,'run-settings.mat'),'inputs');
+            settingsFolder = fullfile(app,'results','last_settings');
+            mkdir(settingsFolder);
+            save(fullfile(settingsFolder,'run-settings.mat'),'inputs');
             oldPath = path;
             testCase.addTeardown(@() path(oldPath));
             oldFolder = pwd;
@@ -155,6 +157,19 @@ classdef testSavedMesh < matlab.unittest.TestCase
             testCase.verifyTrue(strcmp(continueControl.Enable,'off'));
             testCase.verifyEqual(continueControl.Layout.Column,check.Layout.Column);
             testCase.verifyGreaterThan(continueControl.Layout.Row,check.Layout.Row);
+            solvedNet = struct('mu1',1e-3,'mu2',4.3e-3,'L',9e-3,'sigma',7e-2, ...
+                'theta',pi/4,'VerticalBC',false,'k',3.29015,'xi',30.079341699546497, ...
+                'coef',6.644123616564944e-4,'P_crit_width',4,'dt',0.2,'P',100);
+            solvedNet.H = struct('Nx',2,'Ny',1,'P0',1500,'A',[1 1]*pi*1e-8, ...
+                'Sat',[0.1 0],'State',[1 0],'Dir',[1 0],'Move',[1 0], ...
+                'Regime',[3 0],'Q',[1 1]*1e-10);
+            solvedNet.V = struct('Nx',1,'Ny',2,'P0',200,'A',[1;1]*pi*1e-8, ...
+                'Sat',[0;0],'State',[0;0],'Dir',[0;0],'Move',[0;0], ...
+                'Regime',[0;0],'Q',[0;0]);
+            step = 0; elapsedTime = 0; dtUsed = 0;
+            save(fullfile(testRun,'step_000000.mat'),'solvedNet','step','elapsedTime','dtUsed');
+            check.ButtonPushedFcn(check,[]);
+            testCase.verifyTrue(strcmp(continueControl.Enable,'on'));
             geometry = findall(fig,'Tag','GeometryMode');
             testCase.verifyEqual(geometry.Value,'Создать новую');
             areas = findall(fig,'Tag','AreaType');
@@ -184,7 +199,7 @@ classdef testSavedMesh < matlab.unittest.TestCase
             net = getappdata(groot,'savedMeshTestNet');
             testCase.verifyEqual(net.H.A,mesh.Ah);
             testCase.verifyEqual(net.V.A,mesh.Av);
-            settings = load(fullfile(testCase.Folder,'run-settings.mat'));
+            settings = load(fullfile(settingsFolder,'run-settings.mat'));
             testCase.verifyEqual(settings.inputs.ImportedHPath,fileH);
             testCase.verifyEqual(settings.inputs.SavedMeshName,'Test network');
             testCase.verifyEqual(settings.previousGeometry.Ah,mesh.Ah);
@@ -212,6 +227,9 @@ classdef testSavedMesh < matlab.unittest.TestCase
             button = findall(fig,'Tag','saveMeshButton'); button.ButtonPushedFcn(button,[]);
             afterSaveRng = rng;
             randomMesh = savedMesh('load',fullfile(app,'mesh','saved_mesh'),'Random network');
+            expectedOptions = struct('includeAadd',findall(fig,'Tag','IncludeAadd').Value, ...
+                'meniscusModel',findall(fig,'Tag','MeniscusModel').Value, ...
+                'showMeniscus',findall(fig,'Tag','GifShowMeniscus').Value);
             button = findall(fig,'Text','Сохранить и запустить'); button.ButtonPushedFcn(button,[]);
             net = getappdata(groot,'savedMeshTestNet');
             testCase.verifyEqual(net.H.A,randomMesh.Ah);
@@ -220,7 +238,8 @@ classdef testSavedMesh < matlab.unittest.TestCase
             pdfCall = getappdata(groot,'savedMeshTestPdf');
             testCase.verifyEqual(pdfCall.stride,1);
             testCase.verifyEqual(pdfCall.gif,fullfile(app,'saturation_pressure.gif'));
-            settings = load(fullfile(testCase.Folder,'run-settings.mat'));
+            testCase.verifyEqual(pdfCall.options,expectedOptions);
+            settings = load(fullfile(settingsFolder,'run-settings.mat'));
             testCase.verifyTrue(settings.inputs.GifCreatePdf);
             evalin('base','clear runModelOptions runRecordResults');
         end

@@ -24,8 +24,49 @@ classdef testGifReport < matlab.unittest.TestCase
             testCase.verifyEqual(result.reportSteps,[0 2 4 5]);
             testCase.verifyEqual(numel(imfinfo(gif)),numel(result.reportSteps));
             testCase.verifyEqual(result.reportStride,2);
+            testCase.verifyEqual(result.reportLayout.marginMm,20);
+            testCase.verifyEqual(result.reportLayout.cellSizePoints,[60 15]);
+            testCase.verifyLessThanOrEqual(result.reportLayout.framePageSizePoints(2), ...
+                result.reportLayout.pageSizePoints(2));
+            testCase.verifyEqual(result.reportLayout.framePageSizePoints, ...
+                72/25.4*[210 297],'AbsTol',1e-9);
+            testCase.verifyEqual(result.reportLayout.tableOrder,{'P','H.Q','V.Q'});
+            testCase.verifyEqual(result.reportLayout.frameArtwork,'vector');
+            testCase.verifyEqual(result.reportLayout.imageHeightFraction,1/2);
+            testCase.verifyEqual(result.reportLayout.figureArrangement,'stacked-adaptive');
+            testCase.verifyEqual(result.reportLayout.textFontSizePoints,[11 12]);
+            testCase.verifyEqual(result.reportStepPages,[0 2 3;2 4 5;4 6 7;5 8 9]);
+            testCase.verifyEqual(result.reportPageCount,9);
+            testCase.verifyFalse(result.reportModelOptions.showMeniscus);
             metadata = load(fullfile(testCase.Folder,'summary.mat'));
             testCase.verifyEqual(metadata.result,result);
+        end
+        function oversizedTablesContinueOnFixedSheets(testCase)
+            data = load(fullfile(testCase.Folder,'step_000000.mat'));
+            N = data.solvedNet;
+            N.H.Ny = 50; N.V.Ny = 51;
+            for field = {'A','Sat','State','Dir','Move','Regime','Q'}
+                key = field{1};
+                N.H.(key) = repmat(N.H.(key)(1,:),50,1);
+                N.V.(key) = repmat(N.V.(key)(1,:),51,1);
+            end
+            N.P = repmat(N.P(1,:),50,1);
+            metadata = load(fullfile(testCase.Folder,'summary.mat'));
+            result = metadata.result; result.steps = 0;
+            parameters = N;
+            save(fullfile(testCase.Folder,'summary.mat'),'result','parameters');
+            for step = [2 4 5]
+                delete(fullfile(testCase.Folder,sprintf('step_%06d.mat',step)));
+            end
+            saveSimulationStep(N,result,0,0.01);
+            gif = writeSaturationPressureGif(testCase.Folder,[],0.1,false);
+            [~,result] = writeSimulationReport(testCase.Folder,1,gif);
+            testCase.verifyEqual(result.reportSteps,0);
+            testCase.verifyEqual(result.reportStepPages(1,1:2),[0 2]);
+            testCase.verifyGreaterThan(result.reportStepPages(1,3),2);
+            testCase.verifyEqual(result.reportPageCount,result.reportStepPages(1,3));
+            testCase.verifyEqual(result.reportLayout.framePageSizePoints, ...
+                72/25.4*[210 297],'AbsTol',1e-9);
         end
         function mismatchedGifPreservesExistingReport(testCase)
             gif = fullfile(testCase.Folder,'one_frame.gif');

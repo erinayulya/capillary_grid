@@ -47,7 +47,9 @@ if isfield(metadata,'result') && isstruct(metadata.result) && isscalar(metadata.
     result = metadata.result;
 end
 saveStride = 1;
-if isfield(result,'saveStride') && validStride(result.saveStride)
+if isfield(snapshot,'saveStride') && validStride(snapshot.saveStride)
+    saveStride = snapshot.saveStride;
+elseif isfield(result,'saveStride') && validStride(result.saveStride)
     saveStride = result.saveStride;
 else
     positive = sort(numbers(numbers > 0 & numbers <= snapshot.step));

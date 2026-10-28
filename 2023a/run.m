@@ -3,7 +3,8 @@ function run
 setupProject;
 resetSimulationWorkspace(true);
 projectFolder = fileparts(mfilename('fullpath'));
-settingsFile = fullfile(fileparts(projectFolder),'run-settings.mat');
+settingsFolder = fullfile(projectFolder,'results','last_settings');
+settingsFile = fullfile(settingsFolder,'run-settings.mat');
 previousGeometry = struct();
 meshFolder = fullfile(projectFolder,'mesh','saved_mesh');
 
@@ -182,7 +183,8 @@ startButton = uibutton(buttons,'Text','Сохранить и запустить'
 startButton.Layout.Row = 1; startButton.Layout.Column = 3;
 continueButton = uibutton(buttons,'Text','Продолжить прерванный расчет', ...
     'FontSize',13,'Tag','continueLastSimulation','Visible','off','Enable','off', ...
-    'Tooltip','Проверка и данные восстановления подготовлены. Подключение продолжения в main.m пока не согласовано.');
+    'Tooltip','Продолжить с последнего исправного снимка с исходными параметрами.', ...
+    'ButtonPushedFcn',@continueLastCalculation);
 continueButton.Layout.Row = 2; continueButton.Layout.Column = 1;
 inputControls = struct('mu1',mu1,'muRatio',muRatio,'L',L, ...
     'sigma',sigma,'theta',theta,'MeniscusModel',MeniscusModel, ...
@@ -270,6 +272,7 @@ function checkLastCalculation(~,~)
     statusLabel.Text = info.message;
     statusLabel.Tooltip = sprintf('%s\n%s\n%s',info.directory,info.status,info.message);
     heights = layout.RowHeight;
+    continueButton.Enable = 'off';
     if info.found && ~info.completed
         continueButton.Visible = 'on';
         buttons.RowHeight = {42,42}; buttons.RowSpacing = 6;
@@ -277,8 +280,10 @@ function checkLastCalculation(~,~)
         if ~info.canResume
             continueButton.Tooltip = info.message;
         else
-            continueButton.Tooltip = ['Последний исправный снимок проверен. ' ...
-                'Для запуска продолжения требуется согласованная ветка в main.m.'];
+            continueButton.Enable = 'on';
+            continueButton.Tooltip = sprintf( ...
+                'Продолжить со шага %d, t = %.6g с. Параметры из сохранённого расчёта.', ...
+                info.step,info.elapsedTime);
         end
     else
         continueButton.Visible = 'off';
@@ -286,6 +291,52 @@ function checkLastCalculation(~,~)
         heights{3} = 42;
     end
     layout.RowHeight = heights;
+end
+
+function continueLastCalculation(~,~)
+    % Recheck on click: the latest run may have changed since inspection.
+    info = inspectLastSimulation(fullfile(projectFolder,'results'));
+    if ~info.canResume
+        checkLastCalculation([],[]);
+        return;
+    end
+    frameDelay = GifFrameDelay.Value;
+    if VisualizeSatPressure.Value && ...
+            (~isfinite(frameDelay) || frameDelay < 0.01 || frameDelay > 655)
+        uialert(fig,'Время одного кадра должно быть от 0.01 до 655 секунд.','Ошибка');
+        return;
+    end
+    showMeniscus = GifShowMeniscus.Value;
+    createVisualization = VisualizeSatPressure.Value;
+    createPdf = GifCreatePdf.Value;
+    saveStride = info.resume.saveStride;
+    reportOptions = struct('showMeniscus',showMeniscus);
+    assignin('base','runResume',info.directory);
+    resumeCleanup = onCleanup(@() evalin('base','clear runResume'));
+    evalin('base','main');
+    if createVisualization
+        completedResult = evalin('base','simulationResult');
+        gifPath = '';
+        try
+            gifPath = writeSaturationPressureGif(completedResult.directory,[],frameDelay,showMeniscus);
+            fprintf('GIF сатурации и давления: %s\n',gifPath);
+        catch exception
+            warning('run:VisualizationFailed', ...
+                'Расчёт сохранён, но GIF не создан: %s',exception.message);
+        end
+        if createPdf && ~isempty(gifPath)
+            try
+                [pdfPath,completedResult] = writeSimulationReport( ...
+                    completedResult.directory,saveStride,gifPath,reportOptions);
+                assignin('base','simulationResult',completedResult);
+                fprintf('PDF-отчёт по кадрам GIF: %s\n',pdfPath);
+            catch exception
+                warning('run:ReportFailed', ...
+                    'Расчёт и GIF сохранены, но PDF-отчёт не создан: %s',exception.message);
+            end
+        end
+    end
+    if isvalid(fig), delete(fig); end
 end
 
 function ok = saveInputs(~,~,geometryToSave)
@@ -296,8 +347,13 @@ function ok = saveInputs(~,~,geometryToSave)
         savedName = inputNames{savedIndex};
         inputs.(savedName) = inputControls.(savedName).Value;
     end
-    temporaryFile = [tempname(fileparts(settingsFile)) '.mat'];
+    temporaryFile = '';
     try
+        if ~isfolder(settingsFolder)
+            [success,message] = mkdir(settingsFolder);
+            if ~success, error('run:SettingsFolder','%s',message); end
+        end
+        temporaryFile = [tempname(settingsFolder) '.mat'];
         settings = struct('inputs',inputs,'previousGeometry',geometryToSave);
         save(temporaryFile,'-struct','settings');
         [success,message] = movefile(temporaryFile,settingsFile,'f');
@@ -888,6 +944,8 @@ function startMain()
     % main closes the input window: capture the checkbox before calling it.
     createVisualization = VisualizeSatPressure.Value;
     createPdf = GifCreatePdf.Value;
+    reportOptions = struct('includeAadd',IncludeAadd.Value, ...
+        'meniscusModel',MeniscusModel.Value,'showMeniscus',showMeniscus);
     evalin('base', 'main');
     if createVisualization
         completedResult = evalin('base','simulationResult');
@@ -902,7 +960,7 @@ function startMain()
         if createPdf && ~isempty(gifPath)
             try
                 [pdfPath,completedResult] = writeSimulationReport( ...
-                    completedResult.directory,saveStride,gifPath);
+                    completedResult.directory,saveStride,gifPath,reportOptions);
                 assignin('base','simulationResult',completedResult);
                 fprintf('PDF-отчёт по кадрам GIF: %s\n',pdfPath);
             catch exception
@@ -917,5 +975,6 @@ function startMain()
     if isvalid(fig), delete(fig); end
 
 end
+
 
 end

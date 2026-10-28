@@ -1,5 +1,11 @@
 setupProject;
 resetSimulationWorkspace;
+resuming = exist('runResume','var') ~= 0;
+if resuming
+    resume = prepareSimulationResume(runResume);
+    clear runResume runModelOptions
+    Net = resume.snapshot.solvedNet;
+else
 %% ---------------- Параметры ----------------
 if ~exist('Net', 'var')
 
@@ -102,22 +108,31 @@ Net.H.Regime = zeros(size(Net.H.State));
 Net.V.Regime = zeros(size(Net.V.State));
 
 Net.H.Regime(:,1) = 3;
+end
 
 %% ---------- Первый расчет ------------------
 recordResults = exist('runRecordResults','var') && runRecordResults;
 clear runRecordResults
-simulationReport('start',Net,recordResults);
+stationarity = [];
+if resuming
+    stationarity = resume.stationarity;
+    simulationReport('resume',Net,resume);
+    clear resume
+else
+    simulationReport('start',Net,recordResults);
+end
 
 try
+if ~resuming
 Net = solvePressureFlow(Net);
 
 Net = calcTimeStep(Net);
 
-simulationReport('snapshot',Net);
+simulationReport('snapshot',Net,stationarity);
+end
 
 %% ---------- Основной цикл ------------------
 
-stationarity = [];
 while true
 
     stationarity = checkSteadyState(Net,stationarity);
@@ -155,7 +170,7 @@ while true
 
     Net = calcTimeStep(Net);
 
-    simulationReport('snapshot',Net);
+    simulationReport('snapshot',Net,stationarity);
 
 end
 catch exception

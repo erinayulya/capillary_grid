@@ -1,5 +1,5 @@
 СПРАВОЧНИК ПЕРЕМЕННЫХ
-Дата сверки: 27.10.2026 (папка mesh и перенос checkSteadyState в solver).
+Дата сверки: 28.10.2026 (продолжение расчёта и макет PDF).
 Область: все поля Net рабочей модели и ключевые локальные переменные.
 Параметры записи результатов и переменные времени описаны в разделе 6.
 Временные счётчики и свойства графических элементов не перечисляются поштучно.
@@ -192,8 +192,9 @@ geometryToSave/settings: кандидат геометрии и структур
   inputs/previousGeometry. previousGeometry в памяти меняется после успешной записи.
 NewGeometryPanel/geometryLayout: панель всех полей новой сети и внешняя сетка.
   В режиме предыдущей сети панель скрыта, высота строки 0.
-projectFolder: абсолютная папка активного run.m; settingsFile — путь к общему
-  capillary_grid/run-settings.mat, вне папок версий. temporaryFile — MAT-файл
+projectFolder: абсолютная папка активного run.m; settingsFolder —
+  results/last_settings этой версии, settingsFile — run-settings.mat в ней.
+  temporaryFile — MAT-файл
   рядом с ним для записи перед заменой; success/ok — логические итоги записи.
 capillaryGridRunInputs: appdata-кеш явно сохранённых значений; если файл есть,
   он имеет приоритет. При первом запуске обновлённого окна без файла возможен
@@ -303,11 +304,12 @@ session: persistent-структура simulationReport; содержит пар
   recordResults, maxSteps, snapshots (число принятых решений, включая шаг 0),
   dtUsed (следующий выполняемый интервал), timer (идентификатор tic либо [])
   и lastNet (последнее принятое состояние, до снимка 0 — исходные параметры).
-  start сбрасывает сессию, finish/fail освобождает. Одновременно ведётся один запуск.
+  start/resume сбрасывает сессию, finish/fail освобождает. Одновременно ведётся один запуск.
 restoredNet: второй выход simulationReport; при fail — копия lastNet для
   восстановления Net в main; иначе входной Net. Новые поля Net не добавляются.
 options: третий вход simulationReport; logical для start, MException для fail,
-  структура stationarity из checkSteadyState для next/finish.
+  структура stationarity из checkSteadyState для snapshot/next/finish;
+  для resume — контекст prepareSimulationResume.
 
 targetAxes: необязательный дескриптор осей drawNetwork для скрытой отрисовки.
 
@@ -364,15 +366,15 @@ ceil(width*1106/806), чтобы большие сети сохраняли кн
 networkLegend: дескриптор узкой легенды справа от рисунка, одна колонка,
   шрифт 7 pt и дополнительные переносы строк.
 leftCenter/rightCenter: центры колонок H/V в условных пикселях страницы.
-  Таблица давления занимает ширину width/2-60 с отступом 40, как таблица H.Q;
+  В подробном формате таблица давления занимает columnWidth с отступом margin, как H.Q;
   блок «сеть + легенда» центрирован по rightCenter.
-networkWidth=270, legendWidth=145, legendGap=20: размеры сети, легенды
+networkWidth<=270, legendWidth=145, legendGap=20: размеры сети, легенды
   и промежутка между ними в условных пикселях страницы; высота сети 270.
 networkLeft: левая граница блока, rightCenter-(networkWidth+legendGap+legendWidth)/2.
 legendText: подписи легенды с дополнительными переносами; расчётных данных нет.
 Пределы X: [-0.3, H.Nx+0.3]; Y: [-1.3, H.Ny+0.3] в условных координатах
 рисунка. Физические величины и поля Net не изменяются.
-На титульном листе новой модели выводятся P_crit=coef*r^(-5/4) для H и V,
+На титульном листе выводятся P_cap=2*sigma*cos(theta)/sqrt(A/pi) для H и V,
 Па. На странице шага под основными полями выводятся сохранённые матрицы
 Move из Net, прочитанного loadSimulationStep, затем Δp-P_crit, Па, только для State=1.
 Δp вычислен из P того же снимка в направлении Dir. Пересчёта Move в отчёте нет.
@@ -443,7 +445,7 @@ GifFrameDelay: числовой uieditfield в строке 4 resultsGrid; Value
 frameDelayLabel: подпись «Время одного кадра, с», рядом с GifFrameDelay.
   Оба элемента видны только при VisualizeSatPressure.Value=true; строка 30 px,
   при false её высота 0. Высота группы учитывает также периодичность MAT.
-inputs.GifFrameDelay: сохранённое значение в общем run-settings.mat; если поля
+inputs.GifFrameDelay: сохранённое значение в results/last_settings/run-settings.mat; если поля
   нет в старых настройках, действует 0.1 с. Снятие галочки не стирает значение.
 frameDelay в run/startMain: значение до main, затем аргумент экспортёра GIF;
   не передаётся в Net/main и не влияет на расчёт. 1 с = 1 с показа каждого кадра.
@@ -474,7 +476,7 @@ showMeniscus: значение из run/startMain, необязательный 
   writeSaturationPressureGif; logical/binary, по умолчанию true. При false
   скрыты красные маркеры менисков и соответствующая запись легенды.
 
-PDF ПО КАДРАМ GIF (27.10.2026)
+PDF ПО КАДРАМ GIF (обновлено 28.10.2026)
 GifCreatePdf: uicheckbox строки 6 resultsGrid под GifShowMeniscus (строка 5), на обе колонки. Value — logical, по умолчанию false.
 Видна только при VisualizeSatPressure=true. inputs.GifCreatePdf хранит выбор.
 createPdf: локальная копия Value до main; не поле Net и не расчётный параметр.
@@ -482,12 +484,55 @@ gifPath в writeSimulationReport: необязательный путь суще
 frameReport: logical, выбран режим страниц по кадрам; frameInfo — imfinfo GIF.
 frameIndex: номер кадра с 1; renderedSteps/reportSteps — фактические номера MAT.
 На странице кадра P/Q берутся из solvedNet; исходные MAT и Net не меняются.
+reportOptions: необязательный четвёртый аргумент PDF, includeAadd/meniscusModel
+из окна до main, showMeniscus — вариант отображения; это не поля Net.
+result.reportModelOptions: сохранённый выбор для повторного экспорта/продолжения.
+result.gifShowMeniscus/gifPressureRange: видимость менисков и пределы Па в GIF.
+presentation.PcapH/PcapV: справочные статические давления мениска, Па;
+не подменяют коэффициенты/перепады в физической модели.
+margin: 20/25.4*96 единиц холста, при масштабе 0.75 pt/ед. соответствует 20 мм.
+result.reportLayout: marginMm=20, pageSizePoints и cellSizePoints (ширина/высота),
+frameArtwork='vector', tableOrder={'P','H.Q','V.Q'}. Метаданные макета вне Net.
+region: 2x4 нормированных координат половин листа PDF (сатурация, давление).
+Старый формат 1x4 поддерживается для прежнего расположения рядом.
+reportNetworkLayout вычисляет axesPositions внутри половин с равными размерами,
+PositionConstraint=innerposition; положение шкалы colorbarPosition справа от давления.
+Нефтенасыщенность: жирная строка margin+74 под dt (margin+48);
+imageTop=margin+84. Значения в единицах холста, не в миллиметрах.
+frameLayout: cellWidth=80 (60 pt), rowHeight=20 (15 pt), fontSize=10 pt.
+pictureWidth=210/25.4*96; imageHeight — половина области после заголовка и полей.
+Высота листа кадра фиксирована 297 мм; таблицы переходят на новые листы.
+Минимальная ширина страницы 210 мм; расширение только по столбцам таблиц.
+result.reportLayout.framePageSizePoints: размер страницы кадра, независимо от
+pageSizePoints первого листа. Подпись colorbar: Units=normalized, x=5.2 справа.
+reportLayout.imageHeightFraction=1/2; figureArrangement='stacked-adaptive'.
+textFontSizePoints=[11 12], значения ячеек 10 pt.
+framePageSizePoints — книжный A4 рисунков; tablePageSizePoints — размер листов таблиц.
+preferredCellPitchPoints=32; fitted.cellPitchPoints не больше 32 и доступного места.
+nodeDiameterPoints=min(14,0.6*cellPitchPoints); scatter.SizeData — квадрат диаметра.
+lineWidthPoints=min(3,0.1*cellPitchPoints); размер мениска min(6,0.22*cellPitchPoints).
+result.reportStepPages: N x 3, [номер шага, первая страница, последняя страница].
+result.reportPageCount: общее число страниц, включая первый лист параметров.
+bottomLimit=height-margin-32: нижний предел таблиц с резервом под колонтитул.
+continuationTop=margin+70: начало таблиц на листах продолжения того же шага.
+firstRow/lastRow: исходные индексы строк матрицы; rowOffset=firstRow-1
+сохраняет номера строк в левой колонке каждого фрагмента.
+frame: handles общих линий/маркеров/заголовка; в GIF обновляется без пересоздания.
 
-ПОДГОТОВКА ПРОДОЛЖЕНИЯ (27.10.2026)
+ПРОДОЛЖЕНИЕ РАСЧЁТА (28.10.2026)
 checkLastButton: кнопка проверки, строка 1/колонка 1 buttons; saveButton —
 колонка 2, startButton — колонка 3. continueButton: строка 2/колонка 1,
-скрыта до проверки незавершённого запуска и всегда отключена до согласования main.
+скрыта до проверки незавершённого запуска, активна при наличии исправного снимка.
 При показе нижний блок увеличивается с 42 до 90 пикселей.
 info/resume: внешние структуры reporting, не поля Net; содержат проверенный
 снимок и служебные сведения о возможном продолжении. Их чтение не меняет сеть.
-Новых расчётных полей, параметров и defaults в main не введено.
+runResume: одноразовый путь исходной папки, сохраняется при очистке workspace;
+main повторно проверяет снимок и удаляет этот запрос. resuming — logical ветки
+восстановления. Оба значения вне Net и не являются физическими параметрами.
+stationarity в step_*.mat/session: монитор до наблюдения данного решения;
+на snapshot 0 равен []; отсутствие в старом MAT начинает новое наблюдение.
+saveStride в step_*.mat: целый интервал записи; резерв при потере summary.
+resume.maxSteps = snapshot.step+10000*saveStride — новый предел номера шага.
+result.resumedFrom/resumedStep: путь исходного запуска и номер контрольного шага.
+result.totalTime/totalComputeTime продолжаются от принятого снимка (секунды).
+Поля Net, физические параметры и их defaults не изменены.

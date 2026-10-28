@@ -1,34 +1,59 @@
 function [output, restoredNet] = simulationReport(action, Net, options, outputRoot, maxSteps)
 %SIMULATIONREPORT Record states/timing and show calculation progress.
 % Does not modify Net, call model/solver functions, or execute simulation steps.
-% start: options is recordResults. fail: options is the original MException.
+% start: options is recordResults. resume: options is prepareSimulationResume.
+% fail: options is the original MException.
 % next/finish: optional checkSteadyState monitor (outside Net).
 % fail returns the last accepted Net as its second output; no model calls.
-% One active reporting session; every start resets its state.
+% One active reporting session; every start/resume resets its state.
 % MAT stride is consumed once from simulationStorageOptions; default is 1.
-% Default step limit is 10000*stride; an explicit maxSteps overrides it.
+% Default start limit is 10000*stride; an explicit maxSteps overrides it.
+% resume uses the checkpoint's stride and prepared absolute maxSteps.
 persistent session
 output = [];
 restoredNet = Net;
 switch action
-    case 'start'
+    case {'start','resume'}
+        resuming = strcmp(action,'resume');
         if nargin < 3, options = false; end
         recordResults = options;
+        if resuming, recordResults = true; end
         if nargin < 4
             outputRoot = fullfile(fileparts(fileparts(mfilename('fullpath'))),'results');
         end
         validateattributes(recordResults,{'logical'},{'scalar'});
         saveStride = simulationStorageOptions('take');
+        if resuming, saveStride = options.saveStride; end
         if nargin < 5, maxSteps = 10000*saveStride; end
+        if resuming, maxSteps = options.maxSteps; end
         validateattributes(maxSteps,{'numeric'},{'scalar','integer','positive','finite'});
         session = struct('recordResults',recordResults,'maxSteps',maxSteps, ...
             'parameters',Net,'lastNet',Net,'snapshots',0,'dtUsed',0,'timer',[], ...
             'lastStepComputeTime',[],'lastDtUsed',0,'lastTotalComputeTime',0, ...
-            'lastSavedStep',-1,'progress',[]);
+            'lastSavedStep',-1,'progress',[],'stationarity',[]);
         session.result = struct('startedAt',datestr(now,'yyyy-mm-dd HH:MM:SS'), ...
             'totalTime',0,'totalComputeTime',0,'failedComputeTime',0, ...
             'steps',0,'status','Расчёт не завершён.','directory','','pdf','', ...
             'saveStride',saveStride);
+        if resuming
+            session.parameters = options.parameters;
+            session.result.steps = options.snapshot.step;
+            session.result.totalTime = options.snapshot.elapsedTime;
+            session.result.totalComputeTime = options.result.totalComputeTime;
+            session.result.resumedFrom = options.directory;
+            session.result.resumedStep = options.snapshot.step;
+            if isfield(options.result,'reportModelOptions')
+                session.result.reportModelOptions = options.result.reportModelOptions;
+            end
+            session.snapshots = options.snapshot.step+1;
+            session.lastTotalComputeTime = session.result.totalComputeTime;
+            session.lastDtUsed = options.snapshot.dtUsed;
+            if isfield(options.snapshot,'stepComputeTime')
+                session.lastStepComputeTime = options.snapshot.stepComputeTime;
+            end
+            session.lastSavedStep = options.snapshot.step;
+            session.stationarity = options.stationarity;
+        end
         if recordResults
             session.progress = printSimulationProgress('start',session.result,[],[],[],Net);
             if ~isfolder(outputRoot), mkdir(outputRoot); end
@@ -41,10 +66,23 @@ switch action
                 suffix = suffix + 1;
             end
             mkdir(session.result.directory);
-            parameters = Net;
+            if resuming
+                % Keep the original run intact, including files after a bad snapshot.
+                for index = 1:numel(options.historyFiles)
+                    copyfile(fullfile(options.directory,options.historyFiles{index}), ...
+                        fullfile(session.result.directory,options.historyFiles{index}));
+                end
+            end
+            parameters = session.parameters;
             save(fullfile(session.result.directory,'parameters.mat'),'parameters');
         end
-        [session.result,session.timer] = measureComputeTime('start',session.result);
+        if resuming
+            saveSummary(session,Net);
+            fprintf('Продолжение со шага %d, модельное время %.6g с.\n', ...
+                session.result.steps,session.result.totalTime);
+        else
+            [session.result,session.timer] = measureComputeTime('start',session.result);
+        end
     case 'snapshot'
         requireSession(session);
         [session.result,session.timer,seconds] = ...
@@ -55,6 +93,9 @@ switch action
         session.lastStepComputeTime = seconds;
         session.lastDtUsed = session.dtUsed;
         session.lastTotalComputeTime = session.result.totalComputeTime;
+        % This monitor precedes observation of the current accepted solution.
+        session.stationarity = [];
+        if nargin >= 3, session.stationarity = options; end
         if session.recordResults
             if mod(session.result.steps,session.result.saveStride) == 0
                 session = saveLastStep(session);
@@ -155,7 +196,8 @@ function session = saveLastStep(session)
 if session.lastSavedStep == session.result.steps, return; end
 result = session.result;
 result.totalComputeTime = session.lastTotalComputeTime;
-saveSimulationStep(session.lastNet,result,session.lastDtUsed,session.lastStepComputeTime);
+saveSimulationStep(session.lastNet,result,session.lastDtUsed, ...
+    session.lastStepComputeTime,session.stationarity);
 session.lastSavedStep = session.result.steps;
 end
 
