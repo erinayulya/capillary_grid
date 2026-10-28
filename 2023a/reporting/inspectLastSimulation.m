@@ -5,6 +5,8 @@ function info = inspectLastSimulation(resultsFolder)
 % only when a valid solved snapshot exists. Does not execute calculations.
 info = struct('found',false,'completed',false,'canResume',false, ...
     'directory','','status','','step',[],'elapsedTime',[],'resume',[], ...
+    'gifPath','','pdfPath','','hasGif',false,'hasPdf',false, ...
+    'needGif',false,'needPdf',false, ...
     'message','Сохранённых расчётов пока нет.');
 folders = dir(fullfile(resultsFolder,'run_*'));
 folders = folders([folders.isdir]);
@@ -24,6 +26,10 @@ end
 [~,order] = sortrows(keys,[1 2]);
 info.found = true;
 info.directory = fullfile(resultsFolder,folders(order(end)).name);
+info.gifPath = fullfile(info.directory,'saturation_pressure.gif');
+info.pdfPath = fullfile(info.directory,'report.pdf');
+info.hasGif = isfile(info.gifPath);
+info.hasPdf = isfile(info.pdfPath);
 try
     data = load(fullfile(info.directory,'summary.mat'),'result');
     if isstruct(data.result) && isscalar(data.result) && isfield(data.result,'status')
@@ -38,6 +44,8 @@ end
 info.completed = any(strcmp(info.status, ...
     {'Установилось стационарное течение.','Вторая фаза достигла правой границы.'}));
 if info.completed
+    info.needGif = ~info.hasGif;
+    info.needPdf = ~info.hasPdf;
     info.message = 'Последний расчёт завершён до конца. Продолжение не требуется.';
     return;
 end

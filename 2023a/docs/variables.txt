@@ -519,6 +519,16 @@ firstRow/lastRow: исходные индексы строк матрицы; row
 сохраняет номера строк в левой колонке каждого фрагмента.
 frame: handles общих линий/маркеров/заголовка; в GIF обновляется без пересоздания.
 
+НЕДОСТАЮЩИЕ ФАЙЛЫ (28.10.2026)
+info.hasGif/hasPdf: наличие файлов в папке расчёта; needGif/needPdf: отсутствуют
+и запуск завершён успешно. gifPath/pdfPath: канонические полные пути.
+makeGifButton/makePdfButton: кнопки makeLastGif/makeLastPdf ниже checkLastButton,
+показаны только для needGif/needPdf. При одной кнопке она в строке 2, при двух
+GIF в строке 2, PDF в строке 3. С continueButton взаимно исключаются.
+buttons: 3x3, высота нижнего блока 42/96/138 px для 0/1/2 дополнительных кнопок.
+reportOptions.savedFrames: logical/binary, default=false. true разрешает новый
+формат PDF по MAT без GIF и без создания анимации; поля Net не меняет.
+
 ПРОДОЛЖЕНИЕ РАСЧЁТА (28.10.2026)
 checkLastButton: кнопка проверки, строка 1/колонка 1 buttons; saveButton —
 колонка 2, startButton — колонка 3. continueButton: строка 2/колонка 1,

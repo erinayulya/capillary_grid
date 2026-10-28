@@ -77,6 +77,14 @@ classdef testGifReport < matlab.unittest.TestCase
                 'writeSimulationReport:FrameCount');
             testCase.verifyEqual(fileread(report),'previous report');
         end
+        function savedFramesReportDoesNotCreateGif(testCase)
+            [pdf,result] = writeSimulationReport(testCase.Folder,1,'', ...
+                struct('savedFrames',true,'showMeniscus',false));
+            testCase.verifyTrue(isfile(pdf));
+            testCase.verifyFalse(isfile(fullfile(testCase.Folder,'saturation_pressure.gif')));
+            testCase.verifyEqual(result.reportSteps,[0 2 4 5]);
+            testCase.verifyEqual(result.reportLayout.figureArrangement,'stacked-adaptive');
+        end
     end
 end
 

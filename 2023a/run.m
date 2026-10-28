@@ -170,8 +170,8 @@ GifCreatePdf.Layout.Row = 6; GifCreatePdf.Layout.Column = [1 2];
 %% Кнопки и восстановление явно сохранённого ввода
 statusLabel = uilabel(layout,'Text','','Tag','saveStatus','FontSize',13);
 statusLabel.Layout.Row = 2;
-buttons = uigridlayout(layout,[2 3],'ColumnWidth',{270,'1x','1.5x'}, ...
-    'RowHeight',{42,0},'RowSpacing',0,'Padding',[0 0 0 0]);
+buttons = uigridlayout(layout,[3 3],'ColumnWidth',{270,'1x','1.5x'}, ...
+    'RowHeight',{42,0,0},'RowSpacing',0,'Padding',[0 0 0 0]);
 buttons.Layout.Row = 3;
 checkLastButton = uibutton(buttons,'Text','Проверить последний расчет', ...
     'FontSize',13,'Tag','checkLastSimulation','ButtonPushedFcn',@checkLastCalculation);
@@ -186,6 +186,14 @@ continueButton = uibutton(buttons,'Text','Продолжить прерванн�
     'Tooltip','Продолжить с последнего исправного снимка с исходными параметрами.', ...
     'ButtonPushedFcn',@continueLastCalculation);
 continueButton.Layout.Row = 2; continueButton.Layout.Column = 1;
+makeGifButton = uibutton(buttons,'Text','Сделать GIF','FontSize',13, ...
+    'Tag','makeLastGif','Visible','off', ...
+    'ButtonPushedFcn',@(src,event) makeLastOutput('gif'));
+makeGifButton.Layout.Row = 2; makeGifButton.Layout.Column = 1;
+makePdfButton = uibutton(buttons,'Text','Сформировать PDF-отчет','FontSize',13, ...
+    'Tag','makeLastPdf','Visible','off', ...
+    'ButtonPushedFcn',@(src,event) makeLastOutput('pdf'));
+makePdfButton.Layout.Row = 2; makePdfButton.Layout.Column = 1;
 inputControls = struct('mu1',mu1,'muRatio',muRatio,'L',L, ...
     'sigma',sigma,'theta',theta,'MeniscusModel',MeniscusModel, ...
     'IncludeAadd',IncludeAadd,'H_P0',H_P0,'GeometryMode',GeometryMode, ...
@@ -272,11 +280,13 @@ function checkLastCalculation(~,~)
     statusLabel.Text = info.message;
     statusLabel.Tooltip = sprintf('%s\n%s\n%s',info.directory,info.status,info.message);
     heights = layout.RowHeight;
+    extraRows = 0;
+    makeGifButton.Visible = 'off'; makePdfButton.Visible = 'off';
+    makeGifButton.Enable = 'on'; makePdfButton.Enable = 'on';
     continueButton.Enable = 'off';
     if info.found && ~info.completed
         continueButton.Visible = 'on';
-        buttons.RowHeight = {42,42}; buttons.RowSpacing = 6;
-        heights{3} = 90;
+        extraRows = 1;
         if ~info.canResume
             continueButton.Tooltip = info.message;
         else
@@ -287,10 +297,66 @@ function checkLastCalculation(~,~)
         end
     else
         continueButton.Visible = 'off';
-        buttons.RowHeight = {42,0}; buttons.RowSpacing = 0;
-        heights{3} = 42;
+        if info.needGif
+            makeGifButton.Visible = 'on';
+            extraRows = extraRows+1;
+        end
+        if info.needPdf
+            makePdfButton.Layout.Row = 2+extraRows;
+            makePdfButton.Visible = 'on';
+            extraRows = extraRows+1;
+        end
     end
+    rowHeights = {42,0,0};
+    for row = 1:extraRows, rowHeights{row+1} = 42; end
+    buttons.RowHeight = rowHeights;
+    buttons.RowSpacing = 6*(extraRows > 0);
+    heights{3} = 42*(1+extraRows)+12*(extraRows > 0);
     layout.RowHeight = heights;
+end
+
+function makeLastOutput(kind)
+    info = inspectLastSimulation(fullfile(projectFolder,'results'));
+    if ~info.completed || (strcmp(kind,'gif') && ~info.needGif) || ...
+            (strcmp(kind,'pdf') && ~info.needPdf)
+        checkLastCalculation([],[]);
+        return;
+    end
+    set([checkLastButton saveButton startButton continueButton makeGifButton makePdfButton], ...
+        'Enable','off');
+    cleanup = onCleanup(@restoreOutputControls);
+    statusLabel.Text = 'Формирование файла из сохранённых шагов...';
+    drawnow;
+    try
+        if strcmp(kind,'gif')
+            outputPath = writeSaturationPressureGif(info.directory,[], ...
+                GifFrameDelay.Value,GifShowMeniscus.Value);
+        else
+            gifPath = '';
+            options = struct('savedFrames',true);
+            if info.hasGif, gifPath = info.gifPath;
+            else, options.showMeniscus = GifShowMeniscus.Value; end
+            data = load(fullfile(info.directory,'summary.mat'),'result');
+            stride = 1;
+            if isfield(data.result,'saveStride'), stride = data.result.saveStride; end
+            [outputPath,completedResult] = writeSimulationReport(info.directory,stride,gifPath,options);
+            assignin('base','simulationResult',completedResult);
+        end
+    catch exception
+        clear cleanup
+        statusLabel.Text = ['Не удалось сформировать файл: ' exception.message];
+        uialert(fig,exception.message,'Ошибка формирования файла');
+        return;
+    end
+    clear cleanup
+    statusLabel.Text = ['Создан файл: ' outputPath];
+    statusLabel.Tooltip = outputPath;
+end
+
+function restoreOutputControls()
+    if ~isvalid(fig), return; end
+    set([checkLastButton saveButton startButton],'Enable','on');
+    checkLastCalculation([],[]);
 end
 
 function continueLastCalculation(~,~)

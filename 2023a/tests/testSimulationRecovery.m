@@ -26,6 +26,22 @@ classdef testSimulationRecovery < matlab.unittest.TestCase
             testCase.verifyFalse(info.found);
             testCase.verifyFalse(info.canResume);
         end
+        function completedRunShowsOnlyMissingOutputs(testCase)
+            folder = testCase.createRun('run_20261027_120000','Установилось стационарное течение.',0,1);
+            files = {fullfile(folder,'saturation_pressure.gif'),fullfile(folder,'report.pdf')};
+            for mask = 0:3
+                for index = 1:2
+                    if isfile(files{index}), delete(files{index}); end
+                    if bitget(mask,index), testCase.writeText(files{index},'test output'); end
+                end
+                info = inspectLastSimulation(testCase.Folder);
+                testCase.verifyTrue(info.completed);
+                testCase.verifyEqual(info.hasGif,logical(bitget(mask,1)));
+                testCase.verifyEqual(info.hasPdf,logical(bitget(mask,2)));
+                testCase.verifyEqual(info.needGif,~logical(bitget(mask,1)));
+                testCase.verifyEqual(info.needPdf,~logical(bitget(mask,2)));
+            end
+        end
         function completedLatestDoesNotSelectOlderFailure(testCase)
             testCase.createRun('run_20261027_120000','Ошибка расчёта: test',0,1);
             folder = testCase.createRun('run_20261027_120001','Установилось стационарное течение.',0,1);

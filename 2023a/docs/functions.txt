@@ -826,6 +826,20 @@ reporting/inspectLastSimulation.m: info = inspectLastSimulation(resultsFolder)
 info: found/completed/canResume (logical), directory/status/message (текст),
 step/elapsedTime (число и секунды), resume (подготовленный контекст либо []).
 Не изменяет файлы, workspace и состояние сети.
+info.hasGif/hasPdf проверяют файлы saturation_pressure.gif/report.pdf в папке
+последнего запуска, gifPath/pdfPath — их полные пути. needGif/needPdf истинны
+только для успешно завершённого запуска при отсутствии соответствующего файла.
+
+run/makeLastOutput(kind): кнопки «Сделать GIF» и «Сформировать PDF-отчет»
+под проверкой появляются только для недостающих файлов завершённого расчёта.
+Повторно проверяет последний запуск, временно отключает кнопки запуска/сохранения,
+вызывает экспорт из MAT, затем обновляет наличие файлов. При ошибке позволяет
+повторить попытку. Физические параметры окна к данным не применяются.
+PDF создаётся с reportOptions.savedFrames=true, в том числе без GIF; генерация
+PDF сама не создаёт GIF. Видимость менисков при существующем GIF берётся из
+его метаданных, иначе из окна. Интервал MAT читается из summary, по умолчанию 1.
+writeSimulationReport с savedFrames=true включает формат страниц рисунков/таблиц
+без обязательного третьего аргумента GIF. Прежние вызовы сохраняют своё поведение.
 
 reporting/prepareSimulationResume.m: resume = prepareSimulationResume(directory)
 Читает step_*.mat в порядке убывания номера, выбирает последний исправный.

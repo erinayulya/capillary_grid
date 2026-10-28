@@ -123,11 +123,13 @@ classdef testSavedMesh < matlab.unittest.TestCase
             testCase.writeText(fullfile(app,'visualization','writeSaturationPressureGif.m'),sprintf([ ...
                 'function file = writeSaturationPressureGif(folder,unused,delay,show)\n' ...
                 'setappdata(groot,''savedMeshTestGif'',struct(''delay'',delay,''show'',show));\n' ...
-                'file=fullfile(folder,''saturation_pressure.gif'');\nend\n']));
+                'file=fullfile(folder,''saturation_pressure.gif'');\n' ...
+                'fid=fopen(file,''w''); fprintf(fid,''test GIF''); fclose(fid);\nend\n']));
             testCase.writeText(fullfile(app,'reporting','writeSimulationReport.m'),sprintf([ ...
                 'function [file,result] = writeSimulationReport(folder,stride,gif,options)\n' ...
                 'setappdata(groot,''savedMeshTestPdf'',struct(''stride'',stride,''gif'',gif,''options'',options));\n' ...
-                'file=fullfile(folder,''report.pdf''); result=struct(''directory'',folder,''pdf'',file);\nend\n']));
+                'file=fullfile(folder,''report.pdf''); result=struct(''directory'',folder,''pdf'',file);\n' ...
+                'fid=fopen(file,''w''); fprintf(fid,''test PDF''); fclose(fid);\nend\n']));
             inputs = struct('GeometryMode','Задать новую');
             settingsFolder = fullfile(app,'results','last_settings');
             mkdir(settingsFolder);
@@ -145,6 +147,8 @@ classdef testSavedMesh < matlab.unittest.TestCase
             fig = fig(~ismember(fig,existingFigures));
             testCase.addTeardown(@() delete(fig(isvalid(fig))));
             testCase.assertNumElements(fig,1);
+            testCase.addTeardown(@() rmappdata(groot,'savedMeshTestGif'));
+            testCase.addTeardown(@() rmappdata(groot,'savedMeshTestPdf'));
             check = findall(fig,'Tag','checkLastSimulation');
             check.ButtonPushedFcn(check,[]);
             continueControl = findall(fig,'Tag','continueLastSimulation');
@@ -170,6 +174,40 @@ classdef testSavedMesh < matlab.unittest.TestCase
             save(fullfile(testRun,'step_000000.mat'),'solvedNet','step','elapsedTime','dtUsed');
             check.ButtonPushedFcn(check,[]);
             testCase.verifyTrue(strcmp(continueControl.Enable,'on'));
+            gifControl = findall(fig,'Tag','makeLastGif');
+            pdfControl = findall(fig,'Tag','makeLastPdf');
+            testCase.verifyTrue(strcmp(gifControl.Visible,'off'));
+            testCase.verifyTrue(strcmp(pdfControl.Visible,'off'));
+            result.status = 'Установилось стационарное течение.';
+            save(fullfile(testRun,'summary.mat'),'result');
+            check.ButtonPushedFcn(check,[]);
+            testCase.verifyTrue(strcmp(continueControl.Visible,'off'));
+            testCase.verifyTrue(strcmp(gifControl.Visible,'on'));
+            testCase.verifyTrue(strcmp(pdfControl.Visible,'on'));
+            testCase.verifyEqual(gifControl.Layout.Row,2);
+            testCase.verifyEqual(pdfControl.Layout.Row,3);
+            pdfControl.ButtonPushedFcn(pdfControl,[]);
+            testCase.verifyTrue(isfile(fullfile(testRun,'report.pdf')));
+            testCase.verifyFalse(isfile(fullfile(testRun,'saturation_pressure.gif')));
+            testCase.verifyTrue(strcmp(pdfControl.Visible,'off'));
+            testCase.verifyTrue(strcmp(gifControl.Visible,'on'));
+            gifControl.ButtonPushedFcn(gifControl,[]);
+            testCase.verifyTrue(strcmp(pdfControl.Visible,'off'));
+            testCase.verifyTrue(strcmp(gifControl.Visible,'off'));
+            delete(fullfile(testRun,'saturation_pressure.gif'));
+            check.ButtonPushedFcn(check,[]);
+            testCase.verifyTrue(strcmp(gifControl.Visible,'on'));
+            testCase.verifyTrue(strcmp(pdfControl.Visible,'off'));
+            delete(fullfile(testRun,'report.pdf'));
+            fid = fopen(fullfile(testRun,'saturation_pressure.gif'),'w'); fclose(fid);
+            check.ButtonPushedFcn(check,[]);
+            testCase.verifyTrue(strcmp(gifControl.Visible,'off'));
+            testCase.verifyTrue(strcmp(pdfControl.Visible,'on'));
+            testCase.verifyEqual(pdfControl.Layout.Row,2);
+            delete(fullfile(testRun,'saturation_pressure.gif'));
+            result.status = 'Расчёт не завершён.';
+            save(fullfile(testRun,'summary.mat'),'result');
+            check.ButtonPushedFcn(check,[]);
             geometry = findall(fig,'Tag','GeometryMode');
             testCase.verifyEqual(geometry.Value,'Создать новую');
             areas = findall(fig,'Tag','AreaType');
@@ -219,8 +257,6 @@ classdef testSavedMesh < matlab.unittest.TestCase
             testCase.verifyTrue(strcmp(pdfToggle.Visible,'on'));
             testCase.verifyFalse(pdfToggle.Value);
             pdfToggle.Value = true;
-            testCase.addTeardown(@() rmappdata(groot,'savedMeshTestGif'));
-            testCase.addTeardown(@() rmappdata(groot,'savedMeshTestPdf'));
             areas = findall(fig,'Tag','AreaType');
             areas.Value = 'Случайная'; areas.ValueChangedFcn(areas,[]);
             setappdata(groot,'savedMeshTestName','Random network');

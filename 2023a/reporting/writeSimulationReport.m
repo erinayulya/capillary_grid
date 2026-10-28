@@ -5,8 +5,12 @@ if nargin < 2, stride = 1; end
 if nargin < 3, gifPath = ''; end
 if nargin < 4, reportOptions = struct(); end
 % With a GIF, include every saved frame and only P/H.Q/V.Q from solvedNet.
-frameReport = ~isempty(gifPath);
-if frameReport, frameInfo = imfinfo(gifPath); end
+hasGif = ~isempty(gifPath);
+savedFrames = false;
+if isfield(reportOptions,'savedFrames'), savedFrames = reportOptions.savedFrames; end
+validateattributes(savedFrames,{'logical','numeric'},{'scalar','binary'});
+frameReport = hasGif || savedFrames;
+if hasGif, frameInfo = imfinfo(gifPath); end
 data = load(fullfile(directory,'summary.mat'),'result','parameters');
 result = data.result;
 selectedSteps = selectSimulationReportSteps(result.steps,stride);
@@ -113,7 +117,7 @@ stepNumbers = cellfun(@(name) sscanf(name,'step_%d'),{files.name});
 order = order(ismember(stepNumbers(order),selectedSteps));
 if frameReport
     [~,order] = sort(stepNumbers);
-    if numel(frameInfo) ~= numel(order)
+    if hasGif && numel(frameInfo) ~= numel(order)
         error('writeSimulationReport:FrameCount', ...
             'Число кадров GIF (%d) не совпадает с числом сохранённых состояний (%d).', ...
             numel(frameInfo),numel(order));
