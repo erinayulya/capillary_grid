@@ -14,8 +14,13 @@ Nx = Net.H.Nx;
 Ny = Net.H.Ny;
 capillaryWidth = 4; % points; also the current meniscus diameter
 
-c0 = [0 0.4470 0.7410];   % первая фаза
-c2 = [0 0 0];             % вторая фаза (черный)
+phases = displacementPhases(Net);
+c0 = [0 0.4470 0.7410];   % вытесняемая вода
+c2 = [0 0 0];             % вытесняющая нефть
+if phases.waterDisplacing
+    c0 = [0 0 0];
+    c2 = [0 0.4470 0.7410];
+end
 
 if move
     moveH = Net.H.Move;
@@ -282,11 +287,15 @@ box(targetAxes,'on')
 
 xlabel(targetAxes,'x')
 ylabel(targetAxes,'y')
-title(targetAxes,'Распространение второй фазы')
+title(targetAxes,['Вытесняющая фаза: ' phases.displacingName])
 
 % Явные образцы включают все коды Move, даже отсутствующие на текущем шаге.
 legendHandles = gobjects(0);
 legendLabels = {};
+legendHandles(end+1) = plot(targetAxes,NaN,NaN,'Color',c2,'LineWidth',capillaryWidth);
+legendLabels{end+1} = phases.displacingName;
+legendHandles(end+1) = plot(targetAxes,NaN,NaN,'Color',c0,'LineWidth',capillaryWidth);
+legendLabels{end+1} = phases.displacedName;
 
 legendHandles(end+1) = plot(targetAxes,NaN,NaN,'ro', ...
     'LineStyle','none','MarkerFaceColor','r','MarkerSize',capillaryWidth,'MarkerEdgeColor','none');

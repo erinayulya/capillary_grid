@@ -3,6 +3,7 @@ function presentation = simulationReportPresentation(Net,result,options)
 % UI choices override saved report choices; old MAT files use their coefficients.
 % P_cap is the static meniscus pressure 2*sigma*cos(theta)/r [Pa], not P_crit.
 if nargin < 3, options = struct(); end
+phases = displacementPhases(Net);
 saved = struct();
 if isfield(result,'reportModelOptions'), saved = result.reportModelOptions; end
 choices = struct('includeAadd',isfield(Net,'xi') && Net.xi ~= 0, ...
@@ -36,7 +37,7 @@ if choices.includeAadd
 else
     addLine = 'Учет A_add отключен';
 end
-modelLines = {addLine};
+modelLines = {['Вытесняющая фаза: ' phases.displacingName]; addLine};
 if choices.meniscusModel == 1
     modelLines{end+1,1} = 'Модель - один режим (вязкий)';
 else
@@ -48,6 +49,6 @@ else
     end
 end
 presentation = struct('boundaryLines',{boundaryLines},'modelLines',{modelLines}, ...
-    'modelOptions',choices,'PcapH',2*Net.sigma*cos(Net.theta)./sqrt(Net.H.A/pi), ...
+    'modelOptions',choices,'phases',phases,'PcapH',2*Net.sigma*cos(Net.theta)./sqrt(Net.H.A/pi), ...
     'PcapV',2*Net.sigma*cos(Net.theta)./sqrt(Net.V.A/pi));
 end

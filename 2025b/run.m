@@ -14,11 +14,11 @@ fig = uifigure('Name','Параметры расчёта','Visible','off', ...
 layout = uigridlayout(fig,[3 1],'RowHeight',{'1x',22,42}, ...
     'ColumnWidth',{'1x'},'Padding',[12 12 12 12]);
 sections = uigridlayout(layout,[6 1],'ColumnWidth',{'1x'}, ...
-    'RowHeight',{36,330,36,0,36,0},'Padding',[0 0 0 0], ...
+    'RowHeight',{36,368,36,0,36,0},'Padding',[0 0 0 0], ...
     'RowSpacing',8,'Scrollable','on');
 sections.Layout.Row = 1;
 groupNames = {'Физические параметры','Параметры сети','Результаты'};
-groupHeights = [330 290 92];
+groupHeights = [368 290 92];
 groupPanels = gobjects(1,3);
 groupHeaders = gobjects(1,3);
 for groupIndex = 1:3
@@ -35,13 +35,16 @@ for groupIndex = 1:3
 end
 
 %% Физические параметры: жидкости, модель и границы
-physical = uigridlayout(groupPanels(1),[8 2], ...
-    'ColumnWidth',{'1x',310},'RowHeight',{30,42,30,30,30,30,30,30}, ...
+physical = uigridlayout(groupPanels(1),[9 2], ...
+    'ColumnWidth',{'1x',310},'RowHeight',{30,30,42,30,30,30,30,30,30}, ...
     'Padding',[10 8 10 8],'RowSpacing',8);
-uilabel(physical,'Text','Вязкость воды μ₁, Па·с','FontSize',14);
+uilabel(physical,'Text','Вытесняющая фаза','FontSize',14);
+DisplacingPhase = uidropdown(physical,'Items',{'Нефть','Вода'}, ...
+    'ItemsData',{'oil','water'},'Value','oil','FontSize',14);
+uilabel(physical,'Text','Вязкость воды, Па·с','FontSize',14);
 mu1 = uieditfield(physical,'numeric','Value',1e-3,'FontSize',14);
-uilabel(physical,'Text',{'Во сколько раз вязкость нефти', ...
-    'больше вязкости воды μ₂ / μ₁'},'FontSize',14);
+uilabel(physical,'Text',{'Отношение вязкости нефти', ...
+    'к вязкости воды'},'FontSize',14);
 muRatio = uieditfield(physical,'numeric','Value',4.3,'FontSize',14);
 uilabel(physical,'Text','Длина капилляра L, м','FontSize',14);
 L = uieditfield(physical,'numeric','Value',9e-3,'FontSize',14);
@@ -50,16 +53,16 @@ sigma = uieditfield(physical,'numeric','Value',7e-2,'FontSize',14);
 uilabel(physical,'Text','Угол смачивания θ, рад','FontSize',14);
 theta = uieditfield(physical,'numeric','Value',pi/4,'FontSize',14);
 pressureLabel = uilabel(physical,'Text','Давление на левой границе P₀, Па','FontSize',14);
-pressureLabel.Layout.Row = 6; pressureLabel.Layout.Column = 1;
+pressureLabel.Layout.Row = 7; pressureLabel.Layout.Column = 1;
 H_P0 = uieditfield(physical,'numeric','Value',1500,'FontSize',14);
-H_P0.Layout.Row = 6; H_P0.Layout.Column = 2;
+H_P0.Layout.Row = 7; H_P0.Layout.Column = 2;
 uilabel(physical,'Text','Модель движения мениска','FontSize',14);
 MeniscusModel = uidropdown(physical, ...
     'Items',{'Один режим (вязкий)','Два режима (плато и вязкий)'}, ...
     'ItemsData',[1 2],'Value',2,'FontSize',14);
 IncludeAadd = uicheckbox(physical,'Text','Учитывать A_add в вязком режиме', ...
     'Value',true,'FontSize',14);
-IncludeAadd.Layout.Row = 8; IncludeAadd.Layout.Column = [1 2];
+IncludeAadd.Layout.Row = 9; IncludeAadd.Layout.Column = [1 2];
 
 %% Параметры сети: матрицы или настройки случайных площадей
 geometryLayout = uigridlayout(groupPanels(2),[4 2], ...
@@ -194,7 +197,7 @@ makePdfButton = uibutton(buttons,'Text','Сформировать PDF-отчет
     'Tag','makeLastPdf','Visible','off', ...
     'ButtonPushedFcn',@(src,event) makeLastOutput('pdf'));
 makePdfButton.Layout.Row = 2; makePdfButton.Layout.Column = 1;
-inputControls = struct('mu1',mu1,'muRatio',muRatio,'L',L, ...
+inputControls = struct('DisplacingPhase',DisplacingPhase,'mu1',mu1,'muRatio',muRatio,'L',L, ...
     'sigma',sigma,'theta',theta,'MeniscusModel',MeniscusModel, ...
     'IncludeAadd',IncludeAadd,'H_P0',H_P0,'GeometryMode',GeometryMode, ...
     'AreaType',AreaType,'RandomMin',RandomMin,'RandomMax',RandomMax, ...
@@ -978,8 +981,16 @@ function startMain()
 
     Net.VerticalBC = false; % В run верхняя и нижняя границы всегда закрыты.
 
-    Net.mu1 = mu1.Value;
-    Net.mu2 = muRatio.Value * Net.mu1;
+    Net.displacingPhase = DisplacingPhase.Value;
+    % Ввод: вода и отношение нефть/вода. В расчёте: вытесняемая/вытесняющая.
+    waterViscosity = mu1.Value;
+    oilViscosity = muRatio.Value * waterViscosity;
+    Net.mu1 = waterViscosity;
+    Net.mu2 = oilViscosity;
+    if strcmp(Net.displacingPhase,'water')
+        Net.mu1 = oilViscosity;
+        Net.mu2 = waterViscosity;
+    end
 
     Net.L = L.Value;
 

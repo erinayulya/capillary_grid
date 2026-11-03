@@ -4,6 +4,7 @@ function frame = drawSaturationPressureFrame(parent,Net,snapshot,frameIndex,fram
 % Reads solved Net only. Coordinates and phase lengths match drawNetwork.
 if nargin < 8, frame = []; end
 if nargin < 9, region = []; end
+phases = displacementPhases(Net);
 networkSize = [Net.H.Ny Net.H.Nx];
 stacked = size(region,1) == 2;
 if stacked
@@ -33,15 +34,18 @@ hold(satAxes,'on');
 capillaryWidth = 3; % points; shared by capillaries and current meniscus diameter
 water = plot(satAxes,NaN,NaN,'Color',[0.25 0.75 1],'LineWidth',capillaryWidth);
 oil = plot(satAxes,NaN,NaN,'Color',[0 0 0],'LineWidth',capillaryWidth);
+phaseHandles = [oil water];
+if phases.waterDisplacing, phaseHandles = [water oil]; end
+phaseLabels = {phases.displacingName,phases.displacedName};
 closed = plot(satAxes,NaN,NaN,'Color',[0.65 0.65 0.65],'LineWidth',capillaryWidth);
 menisci = plot(satAxes,NaN,NaN,'ro','LineStyle','none', ...
     'MarkerSize',capillaryWidth,'MarkerFaceColor','r','MarkerEdgeColor','none');
 if showMeniscus
-    saturationLegend = legend(satAxes,[oil water menisci],{'Нефть','Вода','Мениск'}, ...
+    saturationLegend = legend(satAxes,[phaseHandles menisci],[phaseLabels {'Мениск'}], ...
         'Location','southoutside','Orientation','horizontal','AutoUpdate','off');
 else
     menisci.Visible = 'off';
-    saturationLegend = legend(satAxes,[oil water],{'Нефть','Вода'}, ...
+    saturationLegend = legend(satAxes,phaseHandles,phaseLabels, ...
         'Location','southoutside','Orientation','horizontal','AutoUpdate','off');
 end
 title(satAxes,'Сатурация');
@@ -101,6 +105,11 @@ end
 water = frame.water; oil = frame.oil; closed = frame.closed;
 menisci = frame.menisci; pressure = frame.pressure; heading = frame.heading;
     [waterXY,oilXY,meniscusXY,closedXY] = phaseSegments(Net);
+    if phases.waterDisplacing
+        displacedXY = waterXY;
+        waterXY = oilXY;
+        oilXY = displacedXY;
+    end
     set(water,'XData',waterXY(1,:),'YData',waterXY(2,:));
     set(oil,'XData',oilXY(1,:),'YData',oilXY(2,:));
     set(menisci,'XData',meniscusXY(1,:),'YData',meniscusXY(2,:));

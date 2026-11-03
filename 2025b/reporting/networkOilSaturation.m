@@ -3,13 +3,19 @@ function [fraction,oilVolume,networkVolume] = networkOilSaturation(Net)
 % Volumes are sum(A*L*phaseFraction), m^3; fraction is dimensionless [0,1].
 % Includes every horizontal capillary and all internal vertical capillaries.
 % Top/bottom vertical boundary stubs count only when VerticalBC is true.
-% State 0/2 means water/oil; State 1 uses Sat, limited to [0,1] for reporting.
+% Sat is the invading fraction, State 0/2 means displaced/invading phase.
+% For water injection the local oil fraction is 1-Sat. Missing phase means oil.
 % Move, flow, history and connectivity do not exclude trapped/stationary fluid.
 % Returns NaN for incomplete/invalid data, so reporting remains optional.
 fraction=NaN; oilVolume=NaN; networkVolume=NaN;
 if ~isstruct(Net) || ~all(isfield(Net,{'H','V','L','VerticalBC'})) || ...
         ~isnumeric(Net.L) || ~isscalar(Net.L) || ~isreal(Net.L) || ...
         ~isfinite(Net.L) || Net.L<=0 || ~isscalar(Net.VerticalBC)
+    return
+end
+try
+    phases=displacementPhases(Net);
+catch
     return
 end
 oil=0; total=0;
@@ -32,6 +38,7 @@ for key='HV'
     end
     sat=max(0,min(1,sat));
     sat(state==0)=0; sat(state==2)=1;
+    if phases.waterDisplacing, sat=1-sat; end
     volumes=areas*Net.L;
     total=total+sum(volumes);
     oil=oil+sum(volumes.*sat);

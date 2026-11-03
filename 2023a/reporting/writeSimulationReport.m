@@ -69,8 +69,8 @@ else
 end
 computeBottom = label(canvas,margin,max(margin+158,statusBottom+18),computeText,10,true);
 lines = [presentation.boundaryLines; {
-    sprintf('Вязкость воды, Net.mu1: %.12g Па·с',Net.mu1)
-    sprintf('Вязкость нефти, Net.mu2: %.12g Па·с',Net.mu2)
+    sprintf('Вязкость вытесняемой фазы (%s), Net.mu1: %.12g Па·с',presentation.phases.displacedName,Net.mu1)
+    sprintf('Вязкость вытесняющей фазы (%s), Net.mu2: %.12g Па·с',presentation.phases.displacingName,Net.mu2)
     sprintf('Длина капилляра, Net.L: %.12g м',Net.L)
     sprintf('Поверхностное натяжение, Net.sigma: %.12g Н/м',Net.sigma)
     sprintf('Угол смачивания, Net.theta: %.12g рад',Net.theta)
