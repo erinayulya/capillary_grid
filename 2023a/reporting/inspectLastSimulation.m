@@ -1,7 +1,7 @@
 function info = inspectLastSimulation(resultsFolder)
 %INSPECTLASTSIMULATION Inspect only the latest named run, without writes.
-% A completed calculation is one that reached stationarity (or the legacy
-% breakthrough criterion). A limit, manual stop, crash or error is resumable
+% A completed calculation reached stationarity, bulk-saturation stability
+% or the legacy breakthrough criterion. A limit, manual stop or error is resumable
 % only when a valid solved snapshot exists. Does not execute calculations.
 info = struct('found',false,'completed',false,'canResume',false, ...
     'directory','','status','','step',[],'elapsedTime',[],'resume',[], ...
@@ -42,7 +42,8 @@ catch
     info.status = 'Итоговый файл отсутствует или повреждён.';
 end
 info.completed = any(strcmp(info.status, ...
-    {'Установилось стационарное течение.','Вторая фаза достигла правой границы.'}));
+    {'Установилось стационарное течение.','Сатурация стабилизировалась.', ...
+    'Вторая фаза достигла правой границы.'}));
 if info.completed
     info.needGif = ~info.hasGif;
     info.needPdf = ~info.hasPdf;

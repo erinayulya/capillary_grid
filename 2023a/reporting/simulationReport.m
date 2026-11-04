@@ -142,6 +142,9 @@ switch action
             session.result.stationarity = options;
             if options.stop
                 session.result.status = 'Установилось стационарное течение.';
+                if isfield(options,'stopReason') && strcmp(options.stopReason,'saturation')
+                    session.result.status = 'Сатурация стабилизировалась.';
+                end
             end
         elseif any(Net.H.State(:,end)==2)
             session.result.status = 'Вторая фаза достигла правой границы.';

@@ -4,6 +4,9 @@ function [pdfPath,result] = writeSimulationReport(directory,stride,gifPath,repor
 if nargin < 2, stride = 1; end
 if nargin < 3, gifPath = ''; end
 if nargin < 4, reportOptions = struct(); end
+analyzeClusters = false;
+if isfield(reportOptions,'analyzeClusters'), analyzeClusters = reportOptions.analyzeClusters; end
+validateattributes(analyzeClusters,{'logical','numeric'},{'scalar','binary'});
 % With a GIF, include every saved frame and only P/H.Q/V.Q from solvedNet.
 hasGif = ~isempty(gifPath);
 savedFrames = false;
@@ -235,6 +238,19 @@ for k = order
         pageNumber),9,false);
     exportPage(fig,temporaryPdf,width,height,true);
     stepPages(frameIndex,:) = [snapshot.step firstPage pageNumber];
+end
+result.clusterAnalysis = struct('enabled',logical(analyzeClusters));
+if analyzeClusters
+    previousPath = path;
+    clusterPathCleanup = onCleanup(@() path(previousPath));
+    addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))), ...
+        'analysis','residual_saturation_analysis'),'-begin');
+    residual = analyzeResidualSaturation(directory);
+    firstClusterPage = pageNumber+1;
+    pageNumber = writeResidualClusterPdf(residual,temporaryPdf,pageNumber);
+    result.clusterAnalysis = struct('enabled',true,'step',residual.step, ...
+        'snapshotPath',residual.snapshotPath,'outputDirectory',residual.outputDirectory, ...
+        'firstPage',firstClusterPage,'lastPage',pageNumber);
 end
 movefile(temporaryPdf,pdfPath,'f');
 result.pdf = pdfPath;

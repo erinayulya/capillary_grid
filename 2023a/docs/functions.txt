@@ -1,12 +1,16 @@
 СПРАВОЧНИК ФУНКЦИЙ
-Дата сверки: 03.11.2026 (выбор вытесняющей фазы).
+Дата сверки: 04.11.2026 (остановка по объёмной сатурации; прежние дополнения сохранены).
 Локальные функции перечислены рядом с основной.
 
 solver/checkSteadyState.m: monitor = checkSteadyState(Net,monitor)
   monitor=[] начинает новое наблюдение. Функция не меняет Net и не вызывает модель.
   До первого H.State(:,end)==2 не оценивает стационарность. При прорыве один раз
   выдаёт justReached=true; сообщение выводит main. Запоминает breakthroughTime, с.
-  Сравнивает все H/V Sat, State, Dir, Move с началом текущего окна. Sat-допуск 1e-10.
+  Дополнительно вызывает checkSaturationStability: stopReason='saturation'
+  завершает расчёт по двум окнам объёмной сатурации без требования полной
+  локальной стационарности. Новое состояние bulkSaturation хранится вне Net;
+  старые мониторы без этого поля поддерживаются. Прежняя строгая проверка:
+  сравнивает все H/V Sat, State, Dir, Move с началом текущего окна. Sat-допуск 1e-10.
   Дополнительно max(abs(Q)/(A*L))*1 с <= 1e-10 у State=1/Move=1 защищает
   от ложной стационарности на плато и при малых шагах. Только после этого
   сравнивает P (включая граничные значения): 1e-5 Па + 1e-8*масштаб P.
@@ -16,6 +20,20 @@ solver/checkSteadyState.m: monitor = checkSteadyState(Net,monitor)
   без ожидания 1 с. Появление нового мениска сбрасывает подтверждение.
   Время суммируется по прежнему конечному dt; при подтверждении добавляется 0.
   Использует только стандартные операции, доступные в R2023a.
+
+reporting/checkSaturationStability.m:
+  observation = checkSaturationStability(Net,observation,time,breakthroughTime)
+  Наблюдает общую объёмную нефтенасыщенность через networkOilSaturation.
+  observation=[] начинает новое наблюдение. Все времена в секундах, сатурация
+  в долях [0,1]. Изменение воды имеет тот же диапазон, что изменение нефти.
+  Два последовательных неперекрывающихся окна: каждое длится не менее
+  0.05*breakthroughTime; max(S_o)-min(S_o)<0.001 (0.1 процентного пункта).
+  Окно начинается в принятом состоянии и завершается при первом решении,
+  достигшем его длительности. Следующее окно начинается в этом же решении.
+  Большой dt считается одним окном; при превышении допуска счётчик окон
+  сбрасывается. Недопустимая сатурация/неположительная длительность отключает
+  этот критерий и сбрасывает окна; прежняя стационарность остаётся доступной.
+  Net, модельное время и расчёт не меняет; симуляцию не вызывает.
 
 tests/testSteadyState.m: класс matlab.unittest.TestCase
   16 проверок: начало наблюдения после прорыва, ненулевой стационарный расход,
@@ -327,7 +345,8 @@ reporting/simulationReport.m:
   менисков тогда нет; calcSaturation ничего не меняет, остальные вызовы выполняет main.
   finish: уточняет причину остановки, записывает итог без PDF, возвращает
   result, выводит причину остановки и освобождает сессию.
-  С monitor сохраняет result.stationarity; stop=true означает
+  С monitor сохраняет result.stationarity; stop=true и stopReason='saturation'
+  означают «Сатурация стабилизировалась.», иначе —
   «Установилось стационарное течение.». Сам прорыв не подменяет причину остановки.
   Без monitor сохранено прежнее поведение finish для архивных вспомогательных вызовов.
   fail: options — исходный MException. При активном таймере учитывает время
@@ -476,7 +495,9 @@ tests/checkResults.m: reports = checkResults(target, options)
   соседними шагами, источник новых менисков и причину завершения.
   Для новых summary с result.stationarity повторяет наблюдение по MAT через
   checkSteadyState; проверяет основание стационарности и нулевой интервал
-  подтверждения после Inf dt. Прежние статусы архивных расчётов поддерживаются.
+  подтверждения после Inf dt. Статус «Сатурация стабилизировалась.» проверяет
+  по stopReason/bulkSaturation и при полной истории повторяет два окна;
+  неподвижность всех менисков для него не требуется. Архивные статусы поддерживаются.
   Продвижение и распространение восстанавливает независимо по прежним Q/dt
   и графу узлов, не вызывая calcState/calcSaturation/calcCanMove.
   Для isCurrentLaw рождения требуют abs(old.Q)>64*eps(max(abs(old.Q))),
@@ -822,8 +843,8 @@ simulationReport('resume',Net,resume[,outputRoot]) создаёт новую п�
 reporting/inspectLastSimulation.m: info = inspectLastSimulation(resultsFolder)
 Выбирает последнюю папку run_YYYYMMDD_HHMMSS[_номер] по времени в имени и
 числовому суффиксу, не по времени изменения отчёта/GIF. Проверяет только её,
-не подменяет более старым расчётом. Завершение: стационарность либо архивный
-прорыв. Лимит, ручной стоп, ошибка и неизвестный итог считаются незавершением.
+не подменяет более старым расчётом. Завершение: стационарность,
+«Сатурация стабилизировалась.» либо архивный прорыв. Лимит, ручной стоп, ошибка и неизвестный итог считаются незавершением.
 info: found/completed/canResume (logical), directory/status/message (текст),
 step/elapsedTime (число и секунды), resume (подготовленный контекст либо []).
 Не изменяет файлы, workspace и состояние сети.
@@ -909,3 +930,172 @@ tests/auditDisplacementAdequacy.m: [summary,details] = auditDisplacementAdequacy
   Сохраняет необязательный MAT в outputFile; пользовательские results не меняет.
   Ограничения одного опыта: 20000 шагов и 50 с; причина остановки в status.
   testDisplacingPhase также проверяет xi>0 и соответствие coef/ширины выбранной модели.
+
+АНАЛИЗ МЕНИСКОВ (03.11.2026)
+run_analysis.m: отдельный скрипт запуска без изменения main/setupProject.
+  Диалог выбирает папку в results (по умолчанию последний расчёт); сохраняет таблицы,
+  интерполянты и выбранные GIF/PDF в analysis внутри папки расчёта. В workspace: frontAnalysis, allMenisci,
+  mobileMenisci, frontFits, fourierFits, harmonicTable/harmonicCosTable/harmonicSinTable.
+  Временное подключение analysis восстанавливает path.
+analysis/front_analysis/analyzeMeniscusFront.m:
+  frontAnalysis = analyzeMeniscusFront(sourceDirectory,outputDirectory,frameDelay,options)
+  Все аргументы необязательны: последний расчёт, его analysis, 0.1 с/кадр, оба формата.
+  По умолчанию папка расчёта/analysis создаётся; явно заданная папка должна существовать.
+  Читает solvedNet (старый формат: Net), step, elapsedTime; не вызывает модель.
+  Обрабатывает все сохранённые step_*.mat по номерам; пропущенные шаги не создаёт.
+  Проверяет номер шага, неубывание времени и неизменность геометрии.
+  Пишет all_menisci.csv, mobile_menisci.csv, front_analysis.mat; по выбору mobile_front.gif/pdf.
+  До полной подготовки выходов прежние файлы не заменяет; временные удаляет.
+  latestFrontAnalysisRun/локальная stepFiles выбирают запуск по умолчанию и сортируют снимки;
+  writeFrontGif обновляет точки и пунктирную линию; writeFrontFourierPdf формирует
+  страницы непустых кадров: мениски слева, численная формула 10 гармоник и суммы 1/3/6/10 справа;
+  в конце writeFrontCoefficientPdf добавляет текстовые таблицы коэффициентов a_n/b_n;
+  removeTemporary очищает только созданные этим вызовом временные выходы.
+analysis/front_analysis/meniscusCoordinates.m:
+  [allMenisci,mobileMenisci,geometry] = meniscusCoordinates(Net,step,elapsedTime)
+  Все State=1, включая Sat=0; в mobileMenisci дополнительный фильтр Move~=2.
+  Читает H/V.A, State, Sat, Dir, Move и VerticalBC. Не изменяет поля Net.
+  Нормирует координаты на полный размер включённой сети; закрытые отводы исключает.
+  Некорректные состояния, направления, насыщенности или геометрия вызывают ошибку.
+analysis/front_analysis/interpolateMeniscusFront.m: fit = interpolateMeniscusFront(menisci)
+  Группирует равные Y, усредняет X и соединяет средние узлы прямыми x=f(y).
+  Сохраняет линейный pp (mkpp), domain, knots и точки узлов для ломаной.
+  Одна высота: method=point, без кривой; нет точек: method=none.
+  GIF не экстраполирует за domain. ppval(fit.pp,y) доступен пользователю,
+  только при method=linear и y внутри domain. Автовыбора семейства функций нет.
+  Все исходные точки сохранены, в том числе разные X при одном Y.
+analysis/front_analysis/fourierMeniscusFront.m: series = fourierMeniscusFront(fit)
+  Принимает линейный интерполянт frontFits, интегрирует его в нормированной
+  координате u=(y-yMin)/(yMax-yMin). Возвращает a0 и первые 10 пар a/b,
+  частоты, амплитуды, численную формулу и суммы 1/3/6/10 на 501 высоте.
+  Период равен наблюдаемому диапазону Y; нет экстраполяции, окна и удаления тренда.
+  Пустой/одноуровневый фронт: no-points/single-height, NaN коэффициенты, без кривых.
+  Вызывается для каждого кадра даже при выключенных GIF/PDF; Net не изменяет.
+analysis/front_analysis/writeFrontFourierPdf.m: writeFrontFourierPdf(result,mobileParts,pdfPath)
+  Векторный PDF, один снимок на страницу, canvas 36x25.5 см (экспорт обрезает поля): слева мениски/линейный фронт,
+  справа сверху формула с численными коэффициентами (7 значащих цифр), ниже
+  сетка 2x2 для сумм 1, 3, 6 и 10 гармоник со средним положением и исходными точками.
+  Масштабы четырёх малых графиков одинаковы в пределах страницы; пустые кадры пропускаются.
+  Canvas в points; AutoResizeChildren только при isprop, экспорт без параметров R2025a.
+Подробности и примеры: analysis/front_analysis/README.txt. Базовые API совместимы с R2023a;
+выполнение проверено в R2025b, наличие копии не подтверждает запуск в R2023a.
+
+analysis/front_analysis/showFrontAnalysisDialog.m: fig = showFrontAnalysisDialog()
+  Модальный UIFigure с uigridlayout: независимые GIF/PDF (оба включены),
+  время кадра 0.1 с, Limits=[0.01 655], видно только при GIF.
+  Подтверждение записывает options в UserData и вызывает uiresume; отмена удаляет окно.
+  run_analysis ждёт диалог, закрывает его и только затем обрабатывает снимки.
+  Пустой результат при отмене не запускает обработку и не меняет таблицы workspace.
+  PNG для GIF и временные выходы удаляются через onCleanup. PDF — векторный, Append.
+
+analysis/front_analysis/latestFrontAnalysisRun.m: folder = latestFrontAnalysisRun(resultsDirectory)
+  Общий выбор последнего run_TIMESTAMP[_N] со снимками для диалога и вызова без аргументов.
+showFrontAnalysisDialog: поле пути и кнопка «Выбрать папку…» открывают uigetdir из results.
+  Подтверждение проверяет принадлежность results и наличие step_*.mat; UserData
+  содержит sourceDirectory. run_analysis передаёт выбранный путь в анализатор.
+
+
+ТАБЛИЦЫ ГАРМОНИК И ПРОПУСК ПУСТЫХ СНИМКОВ PDF (03.11.2026)
+analyzeMeniscusFront/локальная coefficientTables: формирует duration-indexed timetable
+harmonicCosTable (a1..a10), harmonicSinTable (b1..b10), harmonicTable (a1,b1,...,a10,b10).
+Строки t=0 и с любым недоступным коэффициентом (NaN/Inf) исключаются из таблиц. Помимо MAT всегда пишет
+harmonic_coefficients.csv/.tsv с численным Time_s и 20 коэффициентами; временные
+выходы подготавливаются до замены прежних файлов. Формулы/численный метод не меняются.
+writeFrontFourierPdf пропускает frames.MobileCount==0 и frames.Time==0; Append учитывает именно
+число выведенных страниц. При отсутствии непустых снимков остаётся только таблица.
+analysis/front_analysis/writeFrontCoefficientPdf.m: writeFrontCoefficientPdf(result,pdfPath,append)
+  Добавляет итоговые выделяемые текстовые таблицы a_n и b_n: строки — Time_s,
+  каждый блок имеет 10 столбцов первой..десятой гармоник. В PDF 7 значащих цифр,
+  численные CSV/TSV предназначены для копирования с точностью экспорта MATLAB.
+  22 строки на лист; длинные таблицы продолжаются, строки не отбрасываются.
+run_analysis дополнительно предоставляет harmonicTable/harmonicCosTable/harmonicSinTable.
+
+Фильтр итогов (03.11.2026): t=0 исключено из страниц снимков PDF и всех
+таблиц коэффициентов. Из таблиц также исключаются строки с NaN/Inf в a_n/b_n.
+Экспорт CSV и PDF использует время из отфильтрованной timetable; frames и
+fourierFits остаются полными. Метод и значения оставшихся коэффициентов не изменены.
+
+
+АНАЛИЗ КЛАСТЕРОВ И РАЗДЕЛЕНИЕ ПОСТОБРАБОТКИ (03.11.2026)
+analysis/front_analysis/: функции анализа фронта и README.txt; запуск run_analysis.m в корне версии.
+  После переноса путь results определяется относительно корня активной версии.
+  Выходы фронта теперь sourceDirectory/analysis; прежние выходы
+  в sourceDirectory/analysis автоматически не удаляются и не перемещаются.
+analysis/residual_saturation_analysis/run_residual_analysis.m:
+  Скрипт запуска диалога выбора папки; результат residualAnalysis в workspace.
+runResidualAnalysisDialog(): result; закрывает диалог до обработки, временно
+  подключает только функции этой версии. Отмена возвращает []. Без галочки
+  сохраняет таблицы; с галочкой вызывает analyzeMeniscusFront с createPdf=true
+  и analyzeClusters=true. Общий mobile_front.pdf сохраняется в analysis; summary.mat не нужен.
+showResidualAnalysisDialog(resultsDirectory): fig с UserData выбора папки
+  и analyzeClusters. Callback только проверяет папку и завершает uiwait.
+analyzeResidualSaturation(sourceDirectory,outputDirectory): residualAnalysis.
+  Максимальный численный номер step_*.mat; solvedNet, иначе старый Net.
+  Проверяет номер и elapsedTime. Ошибочный последний снимок не заменяется ранним.
+  Сохраняет 4 CSV и MAT прямо в analysis выбранного расчёта.
+  Явная выходная папка должна существовать; временные файлы удаляются.
+displacedPhaseClusters(Net): result; читает H/V.A, State, Sat, Dir, L,
+  VerticalBC, displacingPhase. Строит граф сегментов вытесняемой фазы и узлов,
+  доступных этой фазе, затем graph/conncomp. Move/Q не фильтруются.
+  Выход: channels, clusters, distribution, composition, объёмы м3 и доли насыщения.
+  Общий узел связывает каналы только при наличии вытесняемой фазы с обеих сторон.
+  При Sat=0 доступны оба конца; 0<Sat<1 - конец противоположный входу по Dir;
+  Sat=1 - остатка нет. State=0/2 согласуются с Sat=0/1. Закрытые крайние V исключены.
+  Внешние резервуары не соединяют разные граничные каналы. Невалидные данные - ошибка.
+writeResidualClusterPdf(result,pdfPath,pageNumber): новый pageNumber.
+  Векторные страницы состава кластеров (ID/размер/H/V/объём/выход), затем
+  частоты размеров. Большие таблицы продолжаются на нескольких конечных листах.
+reporting/writeSimulationReport: новый reportOptions.analyzeClusters (false,
+  если не передан). При true анализирует последний снимок независимо от stride,
+  сохраняет таблицы, дописывает страницы в временный общий PDF перед его заменой.
+  result.clusterAnalysis хранит enabled, step, snapshotPath, outputDirectory,
+  firstPage/lastPage. reportPageCount учитывает конечные страницы анализа.
+run_analysis -> showFrontAnalysisDialog: галочка «Анализ кластеров с
+  остаточной насыщенностью» передаёт options.analyzeClusters в analyzeMeniscusFront.
+  В окне параметров симуляции run этой галочки нет.
+Тесты: tests/displacedPhaseClustersTest.m и tests/residualClusterReportTest.m.
+Подробная спецификация: analysis/residual_saturation_analysis/README.txt.
+Расчётные функции, Net, main.m и setupProject.m не изменены.
+
+ФИЛЬТР ПРАВОЙ ГРАНИЦЫ (03.11.2026): displacedPhaseClusters исключает
+ЦЕЛИКОМ каждую компоненту, у которой хотя бы один канал имеет контакт
+с правой границей по вытесняемой фазе. Маска учитывает Dir и Sat, а не только
+положение канала; вытесняющая фаза у правого конца разрывает контакт.
+Фильтр применяется после построения связных компонент, до расчёта всех таблиц.
+ClusterID оставшихся каналов перенумеровывается подряд с 1.
+Связь только с открытым нижним выходом не исключает компоненту.
+displacedVolume/displacedSaturation и все CSV относятся к оставшимся кластерам.
+Поровый объём знаменателя остаётся объёмом всей включённой геометрии.
+totalDisplacedVolume хранит полный объём до исключения; поля
+excludedRightConnectedVolume, excludedRightConnectedChannelCount,
+excludedRightConnectedClusterCount хранят исключённые объём (м3), каналы
+и кластеры. channels.ConnectedToRightBoundary - контакт конца канала с правым
+резервуаром по вытесняемой фазе (после исключения все строки false).
+PDF сообщает число исключённых кластеров/каналов. Расчёт модели не меняется.
+
+Перенос точки входа (03.11.2026): run_analysis.m расположен рядом с run.m;
+временно подключает analysis/front_analysis относительно своего файла.
+Переменные результата и поведение анализа сохранены.
+
+УТОЧНЕНИЕ ОБЩЕГО АНАЛИЗА (03.11.2026)
+run_analysis.m -> showFrontAnalysisDialog -> analyzeMeniscusFront(options).
+options.analyzeClusters (false): при true вызывает analyzeResidualSaturation
+для последнего снимка; результат frontAnalysis.residualAnalysis.
+Все выходы - sourceDirectory/analysis, без вложенных папок по типу анализа.
+writeFrontFourierPdf возвращает полное число страниц; после снимков и таблиц
+Фурье добавляет writeResidualClusterPdf при включении галочки.
+writeFrontCoefficientPdf возвращает число страниц таблиц коэффициентов.
+analyzeResidualSaturation(sourceDirectory,outputDirectory,saveResults):
+  saveResults=false возвращает данные, не записывая CSV/MAT; по умолчанию true.
+writeResidualSaturationTables(residualAnalysis,paths): записывает 4 CSV и MAT
+по пяти переданным путям; оба анализатора используют общий механизм подготовки.
+Файлы фронта и кластеров публикуются после успешной подготовки общего PDF.
+Дополнительный runResidualAnalysisDialog также использует общий анализатор
+фронта для PDF; summary.mat не требуется.
+
+Рисунок сатураций на листе кластеров (03.11.2026): writeResidualClusterPdf
+читает solvedNet последнего снимка (старые файлы: Net) и использует общий
+с GIF из run renderer drawSaturationPressureFrame. На листе распределения
+размеров отображается только сатурация, без поля давления, с легендой фаз
+и менисками. На лист помещается 8 строк таблицы; длинные таблицы продолжаются
+на следующих листах с тем же рисунком. Исходные снимки и Net не изменяются.

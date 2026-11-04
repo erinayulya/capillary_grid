@@ -2,6 +2,7 @@ function monitor = checkSteadyState(Net, monitor)
 %CHECKSTEADYSTATE Observe accepted solutions; never modify Net or run the model.
 % Monitoring starts at right-boundary breakthrough. Time is in seconds,
 % saturation is dimensionless and pressure is in Pa. Data stay outside Net.
+% A separate bulk-saturation criterion may stop before full stationarity.
 if nargin < 2 || isempty(monitor)
     monitor = struct('reached',false,'justReached',false,'stop',false, ...
         'confirm',false,'time',0,'previousDt',0,'breakthroughTime',NaN, ...
@@ -17,11 +18,22 @@ monitor.previousDt = Net.dt;
 monitor.justReached = false;
 monitor.stop = false;
 monitor.confirm = false;
+monitor.stopReason = '';
 if ~monitor.reached
     if ~any(Net.H.State(:,end)==2), return; end
     monitor.reached = true;
     monitor.justReached = true;
     monitor.breakthroughTime = monitor.time;
+end
+
+% Old checkpoints start fresh bulk-saturation windows when resumed.
+if ~isfield(monitor,'bulkSaturation'), monitor.bulkSaturation = []; end
+monitor.bulkSaturation = checkSaturationStability(Net,monitor.bulkSaturation, ...
+    monitor.time,monitor.breakthroughTime);
+if monitor.bulkSaturation.reached
+    monitor.stop = true;
+    monitor.stopReason = 'saturation';
+    return
 end
 
 current = struct('Sat',[Net.H.Sat(:);Net.V.Sat(:)], ...
@@ -69,4 +81,5 @@ monitor.stableSteps = monitor.stableSteps + 1;
 monitor.stop = monitor.confirm || ...
     (monitor.stableSteps >= monitor.minimumSteps && ...
     monitor.time-monitor.referenceTime >= monitor.minimumTime);
+if monitor.stop, monitor.stopReason = 'stationarity'; end
 end

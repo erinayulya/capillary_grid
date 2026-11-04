@@ -1,13 +1,65 @@
 СПРАВОЧНИК ПЕРЕМЕННЫХ
-Дата сверки: 03.11.2026 (выбор вытесняющей фазы).
+Дата сверки: 04.11.2026 (остановка по объёмной сатурации; прежние дополнения сохранены).
 Область: все поля Net рабочей модели и ключевые локальные переменные.
 Параметры записи результатов и переменные времени описаны в разделе 6.
 Временные счётчики и свойства графических элементов не перечисляются поштучно.
 
+ПАКЕТ КРАТКИХ ОТЧЁТОВ (mass_analysis, 04.11.2026)
+parentDirectory — папка сохранённых расчётов; поиск summary.mat рекурсивный.
+overwrite — логический скаляр (также 0/1), по умолчанию true; false пропускает
+  уже существующий brief_report.html. distribution.mu/sigma — заданные
+  параметры ln(площади в м²), извлечённые из имени sigma_<sigma>_mu_<mu>.
+batchSummary — таблица: RunDirectory, ReportPath, Status, Message (строки),
+  ElapsedSeconds (секунды на обработку/пропуск, double).
+Status: pending — ещё не обработан; done — отчёт создан; skipped — уже
+  существовал при overwrite=false; error — ошибка данного расчёта.
+Message при ошибке содержит идентификатор и сообщение MATLAB.
+mass_analysis_summary.csv — снимок всей таблицы в выбранной папке, UTF-8,
+  обновляемый до начала обработки и после каждого расчёта. Поля Net не меняются.
+
+Краткий HTML-отчёт (04.11.2026), данные вне Net:
+options.createBriefReport=true — отдельная третья кнопка run_analysis;
+  options.frameDelay=.5 с, постоянно для обеих встроенных GIF.
+distribution.mu/sigma — заданные параметры ln(A в м²), не вязкость и не
+  поверхностное натяжение Net.sigma. Источник — имя папки либо явный ввод.
+result.briefReportPath — analysis/brief_report.html; briefReportPageCount —
+  минимальное число листов до подбора последнего рисунка в браузере,
+  briefReportPageCountIsMinimum=true. HTML нумеруется после подбора;
+  body.dataset.pageCount хранит фактическое число листов. При необходимости
+  рисунок получает отдельный дополнительный лист. result.gifPath/pdfPath=''.
+  residual-picture.dataset.scale — линейный масштаб от 0.8 до 1 либо 1
+  на отдельном листе; таблица остаётся целой, её данные не меняются.
+  result.distribution хранит mu/sigma. Массивы и таблицы фронта/остатков прежние.
+Шрифт основного текста/подписей 12 pt, чисел таблиц 10 pt; поля 20 mm,
+  A4 portrait 210×297 mm, landscape 297×210 mm.
+  Гармоники: по 12 строк (совместно для серий a/b) на альбомный лист,
+  столбцы Time_s и все 10 коэффициентов; точность 7 значащих цифр.
+  Титульная схема: физический шаг по размеру холста и числу строк/столбцов,
+  LineWidth=min(0.8,0.12*pitch) с нижним пределом 0.12 pt; размеры узлов
+  пропорциональны pitch. Эти параметры графики не являются полями Net.
+Физические площади не масштабируются: 10^-7 м² используется только как единица
+  оси графика. Плотность нормируется на допустимом интервале.
+
+Пакетный запуск mass_tests (03.11.2026), без новых полей Net:
+source — ../generate_lognorm_mesh/results, исходные площади в м²;
+batchRoot — results/mass_tests_03.11.26 активной версии;
+nRows/nCols — целые размеры из имени n_m; H=nRows×(nCols+1),
+  V=(nRows+1)×nCols. MAT saveStride=nRows (для прямоугольных сеток — строки).
+runParameters — прежний вход main с исходными настройками окна run,
+  displacingPhase='oil', H.P0=1500 Па, mu1=1e-3, mu2=4.3e-3 Па*с,
+  L=9e-3 м, sigma=7e-2 Н/м, theta=pi/4, VerticalBC=false и загруженными H.A/V.A.
+runModelOptions.includeAadd=false, meniscusModel=1; runRecordResults=true.
+  Это существующие входы; расчётные коэффициенты применяет main.
+result.directory — после переноса абсолютная папка сети в batchRoot;
+  сохранённое поле summary.mat согласовано с новым местом.
+failure — MException расчёта либо []; данные ошибки отдельно от Net.
+batch_log.txt — статусы/ошибки сетей; batch_error.txt — подробности одной ошибки.
+
 Наблюдение стационарности (20.10.2026), отдельно от Net:
 stationarity: структура checkSteadyState в main; перед циклом [].
   reached/justReached: факт прорыва/событие текущего вызова; logical.
-  stop: выполнен критерий стационарности; confirm: разрешён повтор при Inf dt
+  stop: выполнен критерий стационарности либо объёмной сатурации;
+  confirm: разрешён повтор при Inf dt
   без подвижных менисков и без продвижения модельного времени; logical.
   time: накопленное модельное время, с; previousDt: dt предыдущего решения, с.
   breakthroughTime: время первого прорыва, с (до прорыва NaN).
@@ -18,6 +70,18 @@ stationarity: структура checkSteadyState в main; перед цикло
   безразмерное/Па; до соответствующей проверки Inf.
   saturationTolerance=1e-10; pressureAbsoluteTolerance=1e-5 Па;
   pressureRelativeTolerance=1e-8; minimumTime=1 с; minimumSteps=3.
+  stopReason: '' до остановки, 'stationarity' при прежней строгой проверке,
+    'saturation' при стабилизации объёмной сатурации.
+  bulkSaturation: независимое состояние checkSaturationStability:
+    tolerance=0.001 (0.1 п.п.); windowFraction=0.05; requiredWindows=2;
+    windowDuration=0.05*breakthroughTime, с; windowStart — начало окна, с/NaN;
+    fraction — текущая объёмная нефтенасыщенность [0,1]/NaN;
+    minimum/maximum — границы сатурации текущего окна; change — диапазон
+    последнего наблюдения (при завершении окна сохраняет его полный диапазон);
+    stableWindows — число последовательных окон ниже допуска; reached —
+    выполнен критерий. Общее stop=true достаточно для прежнего break в main.
+  При продолжении новых MAT окна восстанавливаются; для старого монитора
+  без bulkSaturation начинаются заново с первого наблюдаемого решения.
 result.stationarity: копия этой структуры в summary.mat при finish из main.
   Содержит критерии, время прорыва и подтверждение; новые поля Net не добавляются.
 
@@ -590,3 +654,120 @@ phaseNodeSourcePV: интеграл избытка выходящего из у�
 maxPhaseNodeBalance: максимальный дисбаланс расхода фазы в отдельном узле, м3/с.
 phaseAccountingResidualPV: независимая проверка причины глобального фазового
   дисбаланса: ошибка объёма минус источник в узлах плюс внутреннее обрезание.
+
+ДАННЫЕ АНАЛИЗА МЕНИСКОВ (03.11.2026), ОТДЕЛЬНО ОТ Net
+allMenisci/mobileMenisci: длинные таблицы; строка — мениск в одном снимке.
+  Step: номер шага; Time: elapsedTime, с; Orientation: строка H/V;
+  CapillaryRow/CapillaryColumn: индексы капилляра (от 1);
+  X/Y: безразмерные координаты [0,1], начало слева внизу;
+  Sat: доля вытесняющей фазы; Dir: +1/-1; Move: сохранённый код 0..3.
+  Все: State=1. Выбранные: дополнительно Move~=2 (включает Move=0/3).
+  Индексы обозначают капилляр, а не постоянный ID физического мениска.
+geometry: Nx/Ny — размеры H.A; VerticalBC; xBounds/yBounds в шагах решётки;
+  xScale/yScale — нормирующие размеры. Закрытый верх/низ: X=x/Nx,
+  Y=y/(Ny-1); при Ny=1 все Y=0. Открытые отводы: Y=(y+1)/(Ny+1).
+frontAnalysis: sourceDirectory/outputDirectory (абсолютные), geometry,
+  selection, interpolation, frameDelay, createGif, createPdf, savedFiles, allMenisci, mobileMenisci,
+  frames, frontFits, fourierFits, harmonicTable, harmonicCosTable, harmonicSinTable, gifPath, pdfPath. frames: Step, Time, AllCount, MobileCount;
+  включает также шаги без менисков, не представленные строками координат.
+frontFits: cell, один интерполянт на кадр. method=none/point/linear;
+  pp — структура кусочного полинома, [] при недостатке высот;
+  domain=[yMin yMax], NaN при отсутствии менисков;
+  knots — Y, Count, X (среднее), XMin, XMax по каждому точному Y;
+  sampleX/sampleY — кривая для GIF, rawPointCount — число исходных точек.
+  Различные X при одинаковом Y сохраняются в исходных таблицах.
+  Линейная функция интерполирует средние, не все исходные ветви; разрывы не выделяются.
+frameDelay: 0.1 с показа кадра по умолчанию, 0.01..655 с; не масштаб физического времени.
+Выходные CSV/MAT/GIF/PDF находятся в results/run_.../analysis; выбранные выходы заменяются.
+
+options.createGif/createPdf: независимые logical/binary, по умолчанию true.
+Пути gifPath/pdfPath пусты для выключенного формата; старый файл не удаляется и не обновляется.
+showFrontAnalysisDialog.UserData: [] до подтверждения; затем options с frameDelay.
+Папки analysis с исходным кодом содержат только скрипт, функции и документацию.
+
+options.sourceDirectory: абсолютный путь к выбранной в диалоге папке внутри results.
+Для method=linear pp.order=2; sampleX/sampleY совпадают с узлами ломаной.
+
+fourierFits: cell по одному элементу на кадр, также доступен после run_analysis.
+  harmonicCount=10; partialCounts=[1 3 6 10]. status=ok/no-points/single-height.
+  domain=[yMin yMax], period=yMax-yMin; u=(y-yMin)/period, периодическое продолжение.
+  a0 — среднее линейного фронта по u; a/b (10x1 double) — коэффициенты cos/sin,
+  amplitudes=hypot(a,b); все в долях ширины сети, полная точность в MAT.
+  frequencies=(1:10)'/period — циклы на нормированную высоту сети;
+  angularFrequencies=2*pi*frequencies — радианы на нормированную высоту.
+  sampleY (501x1) — только наблюдаемый интервал, partialSums (501x4) —
+  суммы 1/3/6/10 с добавленным a0; rawPointCount — число исходных менисков.
+  formulaLines (cell) и formulaText (char) содержат численную формулу 10 гармоник,
+  коэффициенты в тексте округлены до 7 значащих цифр; интеграционный шум показан как 0.
+  При недостатке высот: period/a0/коэффициенты/частоты NaN, sampleY/partialSums пусты,
+  формула заменена объяснением. Нули вместо отсутствующих данных не подставляются.
+
+
+ТАБЛИЦЫ ЧИСЛЕННЫХ КОЭФФИЦИЕНТОВ (03.11.2026), ОТДЕЛЬНО ОТ Net
+frontAnalysis.harmonicCosTable: timetable Nx10, a1..a10 — коэффициенты косинуса.
+frontAnalysis.harmonicSinTable: timetable Nx10, b1..b10 — коэффициенты синуса.
+frontAnalysis.harmonicTable: timetable Nx20, a1,b1,a2,b2,...,a10,b10.
+Time (duration, секунды elapsedTime) — метка строки, не первый столбец данных.
+N — снимки с t~=0 и конечными значениями всех 20 коэффициентов; строки с NaN/Inf исключены.
+Повторные времена допустимы. Коэффициенты double в долях ширины сети, не амплитуды.
+CSV/TSV: Time_s (double, с), затем те же пары a_n/b_n. PDF: два блока по 10
+столбцов, время — метка строки; текстовые значения округлены до 7 значащих цифр.
+Все снимки сохраняются в frames/fourierFits/GIF. Пустые и t=0 не имеют страницы
+рисунков PDF. Итоговые таблицы MAT/CSV/TSV/PDF исключают t=0 и NaN/Inf, 22 строки на лист.
+
+Фильтр итогов (03.11.2026): t=0 исключено из страниц снимков PDF и всех
+таблиц коэффициентов. Из таблиц также исключаются строки с NaN/Inf в a_n/b_n.
+Экспорт CSV и PDF использует время из отфильтрованной timetable; frames и
+fourierFits остаются полными. Метод и значения оставшихся коэффициентов не изменены.
+
+
+КЛАСТЕРЫ ВЫТЕСНЯЕМОЙ ФАЗЫ (03.11.2026), ВНЕ NET
+residualAnalysis.displacedPhase: water при закачке нефти, oil при закачке воды.
+channels: одна строка на включённый канал с Sat<1; Orientation, CapillaryRow,
+  CapillaryColumn, Sat, Dir, DisplacedVolume (м3), ConnectedToOutlet,
+  TouchesBoundary, ClusterID (локальный номер кластера одного снимка).
+clusters: ClusterID, ChannelCount, HorizontalCount, VerticalCount,
+  DisplacedVolume, ConnectedToOutlet, TouchesBoundary; одна строка на компонент.
+distribution: ChannelCount=1..maxSize, ClusterCount, HorizontalChannels,
+  VerticalChannels, IsolatedClusterCount. H/V - СУММЫ по кластерам строки;
+  отсутствующие размеры сохраняются нулевыми строками.
+composition: ChannelCount, HorizontalCount, VerticalCount, ClusterCount;
+  частоты точного сочетания размера и внутреннего состава H/V.
+ConnectedToOutlet: связь по вытесняемой фазе с правым/открытым нижним выходом.
+  TouchesBoundary учитывает также левый/верхний вход. Внешний резервуар не узел графа.
+poreVolume=sum(A*L) включённых каналов; displacedVolume=sum(A*L*(1-Sat)), м3.
+displacedSaturation=displacedVolume/poreVolume; isolatedVolume/isolatedSaturation
+  вычислены только по кластерам без связи с выходом. Насыщенность - доля, в PDF %.
+  Отсутствие связи с выходом само по себе не утверждает неподвижность при любом давлении.
+sourceDirectory/snapshotPath/outputDirectory: пути расчёта, снимка и результатов;
+  step: максимальный сохранённый номер; elapsedTime: время снимка в секундах.
+reportOptions.analyzeClusters: logical/binary, по умолчанию false; включает
+  таблицы и конечные страницы общего PDF. Не изменяет Net и не запускает решатель.
+result.clusterAnalysis: enabled; при включении также step/snapshotPath/
+  outputDirectory/firstPage/lastPage. reportPageCount включает приложение.
+frontAnalyzeClusters: галочка диалога run_analysis, передаёт options.analyzeClusters.
+  При true анализирует последний снимок и сохраняет CSV/MAT независимо от PDF;
+  при createPdf=true добавляет страницы в mobile_front.pdf. По умолчанию false.
+
+ФИЛЬТР ПРАВОЙ ГРАНИЦЫ (03.11.2026): displacedPhaseClusters исключает
+ЦЕЛИКОМ каждую компоненту, у которой хотя бы один канал имеет контакт
+с правой границей по вытесняемой фазе. Маска учитывает Dir и Sat, а не только
+положение канала; вытесняющая фаза у правого конца разрывает контакт.
+Фильтр применяется после построения связных компонент, до расчёта всех таблиц.
+ClusterID оставшихся каналов перенумеровывается подряд с 1.
+Связь только с открытым нижним выходом не исключает компоненту.
+displacedVolume/displacedSaturation и все CSV относятся к оставшимся кластерам.
+Поровый объём знаменателя остаётся объёмом всей включённой геометрии.
+totalDisplacedVolume хранит полный объём до исключения; поля
+excludedRightConnectedVolume, excludedRightConnectedChannelCount,
+excludedRightConnectedClusterCount хранят исключённые объём (м3), каналы
+и кластеры. channels.ConnectedToRightBoundary - контакт конца канала с правым
+резервуаром по вытесняемой фазе (после исключения все строки false).
+PDF сообщает число исключённых кластеров/каналов. Расчёт модели не меняется.
+
+ОБЩИЙ АНАЛИЗ (03.11.2026): options.analyzeClusters/
+frontAnalysis.analyzeClusters - флаг кластеров; frontAnalysis.residualAnalysis -
+структура результата последнего снимка либо []. frontAnalysis.pdfPageCount -
+полное число страниц mobile_front.pdf, включая конечные таблицы кластеров.
+В workspace run_analysis также предоставляет residualAnalysis.
+Все outputDirectory относятся к analysis расчёта без вложенных папок.
