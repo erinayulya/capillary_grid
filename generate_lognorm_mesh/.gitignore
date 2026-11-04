@@ -1,0 +1,4 @@
+# Generated meshes, PDF reports and random-state manifests
+/results/
+*.asv
+*.autosave
