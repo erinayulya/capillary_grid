@@ -8,6 +8,7 @@ if ~isempty(frontAnalysis)
     mobileMenisci = frontAnalysis.mobileMenisci;
     frontFits = frontAnalysis.frontFits;
     fourierFits = frontAnalysis.fourierFits;
+    continuousSpectrum = frontAnalysis.continuousSpectrum;
     harmonicTable = frontAnalysis.harmonicTable;
     harmonicCosTable = frontAnalysis.harmonicCosTable;
     harmonicSinTable = frontAnalysis.harmonicSinTable;
